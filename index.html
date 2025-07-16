@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IA.Dev.Academy - Sua Trilha de Estudos com IA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="dashboard-screen" class="screen">
+      <header id="dashboard-header">
+        <h1>IA.Dev<span>.Academy</span></h1>
+        <p>
+          Qual trilha de estudos você quer gerar hoje? Digite o tema abaixo e
+          deixe a IA criar um plano de aprendizado personalizado para você.
+        </p>
+        <div class="api-mode-selector">
+          <span>Modo Manual</span>
+          <label class="switch">
+            <input type="checkbox" id="api-mode-toggle" />
+            <span class="slider"></span>
+          </label>
+          <span>Modo API</span>
+        </div>
+      </header>
+      <main>
+        <div id="trilha-generator">
+          <form id="trilha-form">
+            <input
+              type="text"
+              id="tema-input"
+              placeholder="Ex: Python para Análise de Dados"
+              required
+            />
+            <button type="submit">Gerar Trilha de Estudos ✨</button>
+          </form>
+        </div>
+        <div id="trilhas-container-wrapper" class="hidden">
+          <h2>Minhas Trilhas</h2>
+          <div id="trilhas-container"></div>
+        </div>
+      </main>
+    </div>
+
+    <div id="learning-screen" class="screen hidden">
+      <div id="learning-screen-layout">
+        <aside id="sidebar">
+          <div class="sidebar-header"><h2 id="sidebar-title">Trilha</h2></div>
+          <button id="back-to-dashboard">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M19 12H5"></path>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Voltar ao Dashboard
+          </button>
+          <ul id="modules-list"></ul>
+        </aside>
+        <main id="main-content"></main>
+      </div>
+    </div>
+
+    <div id="prompt-modal" class="hidden">
+      <div class="modal-content">
+        <button class="modal-close-btn">&times;</button>
+        <h2 id="modal-title">Interação Manual com a IA</h2>
+        <div>
+          <label for="prompt-display"
+            >1. Copie este prompt e cole no seu Chat de IA:</label
+          >
+          <pre id="prompt-display" class="modal-prompt"></pre>
+        </div>
+        <div>
+          <label for="response-input"
+            >2. Cole a resposta JSON COMPLETA da IA aqui:</label
+          >
+          <textarea
+            id="response-input"
+            placeholder="Cole a resposta JSON da IA aqui..."
+          ></textarea>
+        </div>
+        <p id="modal-error-message" class="hidden"></p>
+        <div class="modal-actions">
+          <button id="copy-prompt-btn" class="modal-btn">Copiar Prompt</button>
+          <button id="submit-response-btn" class="modal-btn">Continuar</button>
+        </div>
+      </div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
