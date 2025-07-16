@@ -981,3 +981,59 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderDashboard();
   }
 });
+
+// Adicione este código ao seu script.js
+// É uma boa prática envolver seu código neste evento para garantir que o HTML foi carregado
+document.addEventListener("DOMContentLoaded", () => {
+  // Pega os elementos do DOM
+  const menuToggleBtn = document.getElementById("menu-toggle-btn");
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("overlay");
+  const mainContent = document.getElementById("main-content");
+
+  // Função para abrir o menu
+  const openMenu = () => {
+    sidebar.classList.add("visible");
+    overlay.classList.remove("hidden");
+  };
+
+  // Função para fechar o menu
+  const closeMenu = () => {
+    sidebar.classList.remove("visible");
+    overlay.classList.add("hidden");
+  };
+
+  // Adiciona evento de clique no botão de menu
+  if (menuToggleBtn) {
+    menuToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // Impede que o clique se propague
+      if (sidebar.classList.contains("visible")) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
+  }
+
+  // Adiciona evento de clique no overlay para fechar o menu
+  if (overlay) {
+    overlay.addEventListener("click", closeMenu);
+  }
+
+  // --- MELHORIA DE UX: Fechar o menu ao clicar em um item ---
+  // Isso garante que após selecionar um tópico, o menu se feche no mobile.
+  if (sidebar) {
+    sidebar.addEventListener("click", (e) => {
+      // Verifica se o clique foi em um link de subtópico ou no botão de voltar
+      if (
+        e.target.closest(".subtopic-item") ||
+        e.target.closest("#back-to-dashboard")
+      ) {
+        // Apenas fecha se a tela for pequena (quando a sidebar é retrátil)
+        if (window.innerWidth <= 992) {
+          closeMenu();
+        }
+      }
+    });
+  }
+});
