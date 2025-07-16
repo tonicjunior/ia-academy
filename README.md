@@ -6,9 +6,6 @@
 
 IA Dev Academy é uma aplicação web inovadora que gera trilhas de estudo personalizadas sobre qualquer tema de tecnologia, utilizando o poder da Inteligência Artificial do Google Gemini. A plataforma guia o usuário através de módulos e subtópicos com aulas interativas, avaliações e feedback detalhado, tudo gerado dinamicamente.
 
-![Screenshot da Aplicação](https://i.imgur.com/gK9pBcx.png)
-*(Exemplo de imagem da interface)*
-
 ## ✨ Funcionalidades Principais
 
 -   **Geração Dinâmica de Currículo**: Insira um tema (ex: "JavaScript Assíncrono") e a IA "Coordenador" criará um plano de estudos completo, com módulos e subtópicos.
