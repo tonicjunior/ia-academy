@@ -42,7 +42,15 @@
           </form>
         </div>
         <div id="trilhas-container-wrapper" class="hidden">
-          <h2>Minhas Trilhas</h2>
+          <div class="trilhas-header">
+            <h2>Minhas Trilhas</h2>
+            <button
+              id="clear-storage-btn"
+              title="Apagar todas as trilhas salvas"
+            >
+              Limpar Tudo 🗑️
+            </button>
+          </div>
           <div id="trilhas-container"></div>
         </div>
       </main>
@@ -130,6 +138,22 @@
         toggleBtn.addEventListener("click", () => {
           const isOpen = sidebar.classList.toggle("active");
           textSpan.textContent = isOpen ? "Ver Conteúdo" : "Ver Trilha";
+        });
+      }
+
+      const clearStorageBtn = document.getElementById("clear-storage-btn");
+
+      if (clearStorageBtn) {
+        clearStorageBtn.addEventListener("click", () => {
+          const isConfirmed = confirm(
+            "Você tem certeza que deseja apagar TODAS as suas trilhas salvas? Esta ação não pode ser desfeita."
+          );
+
+          if (isConfirmed) {
+            localStorage.clear();
+            alert("Suas trilhas foram apagadas com sucesso!");
+            location.reload();
+          }
         });
       }
     </script>
