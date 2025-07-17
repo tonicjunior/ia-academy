@@ -641,7 +641,7 @@ input:checked + .slider:before {
 
   #sidebar.active {
     opacity: 1;
-    min-height: 600px;
+    min-height: 60vh;
     overflow: auto;
   }
 }
