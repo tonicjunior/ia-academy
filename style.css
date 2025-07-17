@@ -645,3 +645,24 @@ input:checked + .slider:before {
   }
 }
 
+.trilhas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem; /* Adiciona um espaço antes da lista de trilhas */
+}
+
+#clear-storage-btn {
+  background-color: #555;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+#clear-storage-btn:hover {
+  background-color: #e53e3e; /* Vermelho para indicar uma ação destrutiva */
+}
