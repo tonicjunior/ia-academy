@@ -134,10 +134,12 @@
 
       if (toggleBtn && sidebar) {
         const textSpan = document.getElementById("text-toggle");
+        const conteudo = document.getElementById("main-content");
 
         toggleBtn.addEventListener("click", () => {
           const isOpen = sidebar.classList.toggle("active");
           textSpan.textContent = isOpen ? "Ver Conteúdo" : "Ver Trilha";
+          conteudo.hidden = isOpen ? true : false;
         });
       }
 
