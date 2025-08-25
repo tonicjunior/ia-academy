@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Tech](https://img.shields.io/badge/tech-JavaScript%20%7C%20HTML5%20%7C%20CSS3-yellow)
 
-> **IA Dev Academy** é uma plataforma web que cria trilhas de estudo personalizadas sobre temas de tecnologia utilizando **Google Gemini AI**.
+> **IA Dev Academy** é uma plataforma web que cria trilhas de estudo personalizadas sobre temas de tecnologia utilizando **IA**.
 
 A plataforma conduz o usuário por módulos e subtópicos com aulas interativas, avaliações, feedback detalhado e certificados de conclusão tudo gerado dinamicamente.
 
@@ -56,7 +56,7 @@ A plataforma conduz o usuário por módulos e subtópicos com aulas interativas,
 - **API de IA:** webhook n8n
 - **Certificados:** `html2canvas` (exportação em PNG)
 - **Armazenamento:** `localStorage`
-- **Backend:** n8n.cloud (proteção da chave do Gemini)
+- **Backend:** n8n.cloud (proteção da chave do Gemini, DEEPSEAK, OPENAI etc)
 
 ---
 
