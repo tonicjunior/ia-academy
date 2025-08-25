@@ -159,7 +159,7 @@ body {
 .hero-bg {
   position: absolute;
   inset: 0;
-  background-image: url("../assets/images/IA.png");
+  background-image: url("assets/images/IA.png");
   background-size: cover;
   background-position: center;
   background-blend-mode: overlay;
