@@ -38,8 +38,16 @@ const tutorialSteps = [
     content: `No canto superior direito, você encontrará o ícone de engrenagem. Clique nele para personalizar sua experiência: ativar o <strong>Modo Escuro</strong>, gerenciar seu nome para os certificados e ajustar outras preferências.`,
   },
   {
-    title: "5. Use o Assistente IA",
-    content: `No canto inferior direito, você verá um ícone de chat. Este é o seu <strong>Assistente IA Externo (DeepSeek)</strong>. Se tiver qualquer dúvida sobre o conteúdo que está estudando, pode abri-lo a qualquer momento para perguntar e obter ajuda extra.`,
+    title: "5. Use o Assistente Externo (Modo Manual)",
+    content: `No canto inferior direito, você verá um ícone de chat. Ele abre uma janela com uma IA externa. Se estiver no <strong>Modo Manual</strong>, pode usar essa janela para colar os prompts que fornecemos e gerar o conteúdo da sua trilha, tudo sem precisar sair da nossa plataforma.`,
+  },
+  {
+    title: "6. Dica de Login no Assistente",
+    content: `Para sua segurança, serviços como o Google bloqueiam o login dentro de janelas integradas. Por isso, a autenticação com um clique pode falhar. <strong>Prefira sempre o login com e-mail e senha.</strong> Fique tranquilo: nosso site não tem acesso a nenhuma informação digitada lá. Se preferir, crie uma conta nova no serviço de IA para usar aqui.`,
+  },
+  {
+    title: "7. Ou Use Sua IA Preferida",
+    content: `Não quer usar a janela do assistente? Sem problemas! No Modo Manual, você sempre pode usar o botão <strong>'Copiar Prompt'</strong>. Com o prompt copiado, basta colar na sua ferramenta de IA favorita, como o ChatGPT, Claude, Copilot ou qualquer outra.`,
   },
   {
     title: "Tudo Pronto!",
@@ -88,6 +96,7 @@ function renderTutorialStep(stepIndex) {
 function closeTutorial() {
   $("#tutorial-modal").classList.add("hidden");
   localStorage.setItem(TUTORIAL_KEY, "true");
+  checkCertificateInfo();
 }
 
 const ICONS = {
@@ -1469,6 +1478,7 @@ function setupEventListeners() {
     if (name) {
       localStorage.setItem(CERTIFICATE_KEY, JSON.stringify({ name }));
       $("#certificate-modal").classList.add("hidden");
+      $("#settings-modal").classList.remove("hidden");
     }
   });
 
@@ -1536,10 +1546,11 @@ document.addEventListener("DOMContentLoaded", () => {
   initializeSettings();
   loadState();
   setupEventListeners();
-  checkCertificateInfo();
   appState.activeTrilhaId = null;
   renderDashboard();
   if (!localStorage.getItem(TUTORIAL_KEY)) {
     setTimeout(showTutorial, 500);
+  } else {
+    checkCertificateInfo();
   }
 });
