@@ -4,9 +4,9 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Tech](https://img.shields.io/badge/tech-JavaScript%20%7C%20HTML5%20%7C%20CSS3-yellow)
 
-> **IA Dev Academy** é uma plataforma web inovadora que gera trilhas de estudo personalizadas sobre qualquer tema de tecnologia utilizando **Google Gemini AI**.
+> **IA Dev Academy** é uma plataforma web que cria trilhas de estudo personalizadas sobre temas de tecnologia utilizando **Google Gemini AI**.
 
-A plataforma guia o usuário através de módulos e subtópicos com aulas interativas, avaliações, feedback detalhado e certificados de conclusão **tudo gerado dinamicamente**.
+A plataforma conduz o usuário por módulos e subtópicos com aulas interativas, avaliações, feedback detalhado e certificados de conclusão — tudo gerado dinamicamente.
 
 ---
 
@@ -23,63 +23,49 @@ A plataforma guia o usuário através de módulos e subtópicos com aulas intera
 
 ## ✨ Funcionalidades Principais
 
-- **Geração Dinâmica de Currículo**  
-  Digite um tema e a IA _"Coordenador"_ cria um plano de estudos completo com módulos e subtópicos.
+- **Geração de Currículo Personalizado**  
+  Digite um tema e a IA _Coordenador_ cria um plano de estudos estruturado.
 
 - **Aulas Interativas**  
-  Cada subtópico é ensinado por uma IA _"Professor"_, que explica conceitos e permite aprofundamento ou perguntas abertas.
+  Cada subtópico é ensinado por uma IA _Professor_, com explicações dinâmicas e interações.
 
-- **Avaliações Geradas por IA**  
-  Ao final de cada tópico, uma IA _"Avaliador"_ gera quizzes de múltipla escolha.
+- **Avaliações Inteligentes**  
+  Ao final de cada tópico, a IA _Avaliador_ gera quizzes de múltipla escolha.
 
-- **Feedback Personalizado**  
-  Se o aluno errar uma questão, a IA _"Tutor"_ fornece explicações detalhadas e encorajadoras.
+- **Feedback Detalhado**  
+  Em caso de erro, a IA _Tutor_ explica de forma clara os conceitos e aponta melhorias.
 
 - **Certificado de Conclusão**  
-  Gere e baixe um certificado personalizado ao concluir a trilha.
-
-- **Onboarding Interativo**  
-  Tutorial passo a passo para novos usuários.
+  Gere e baixe um certificado personalizado ao finalizar sua trilha.
 
 - **Assistente IA Integrado**  
-  Botão flutuante que abre um assistente externo em um _iframe_:  
-  [chat.deepseek.com](https://chat.deepseek.com)
+  Um botão flutuante abre um assistente via [chat.deepseek.com](https://chat.deepseek.com).
 
-- **Configurações Personalizadas**
+- **Modos Flexíveis (API e Manual)**  
+  - **API:** conteúdo gerado automaticamente via n8n
+  - **Manual:** prompts inseridos manualmente
 
-  - Alternar modo escuro/claro
-  - Habilitar/desabilitar o assistente
-  - Alterar o nome do certificado
-
-- **Modo API vs. Modo Manual**
-
-  - **API:** conteúdo gerado automaticamente
-  - **Manual:** prompts e respostas colados manualmente
-  - _Modo padrão: Manual_
-
-- **Acompanhamento de Progresso**  
-  Uso de `localStorage` para salvar o progresso localmente.
+- **Progresso Salvo Localmente**  
+  Utiliza `localStorage` para armazenar seu progresso.
 
 ---
 
 ## 🚀 Tecnologias Utilizadas
 
-- **Frontend:** HTML5, CSS3, JavaScript (Vanilla JS)
+- **Frontend:** HTML5, CSS3, JavaScript (Vanilla)
 - **API de IA:** webhook n8n
-- **Certificados:** `html2canvas` para exportar em PNG
+- **Certificados:** `html2canvas` (exportação em PNG)
 - **Armazenamento:** `localStorage`
-- **Backend:** `n8n.cloud` como intermediário para proteger a chave do Gemini
+- **Backend:** n8n.cloud (proteção da chave do Gemini)
 
 ---
 
 ## ⚙️ Como Funciona o Fluxo de IAs
 
-A aplicação utiliza diferentes _personas_ de IA, cada uma com um papel específico:
-
-- **Coordenador IA:** Recebe o tema e retorna um currículo estruturado em JSON.
-- **Professor IA:** Cria a aula e opções de interação para cada subtópico.
-- **Avaliador IA:** Gera um quiz com 8 questões de múltipla escolha baseado no conteúdo.
-- **Tutor IA:** Explica detalhadamente os erros cometidos pelo aluno.
+- **Coordenador IA:** Recebe o tema e gera um currículo estruturado em JSON.
+- **Professor IA:** Cria o conteúdo de cada subtópico.
+- **Avaliador IA:** Gera quizzes de 8 perguntas por módulo.
+- **Tutor IA:** Fornece explicações detalhadas para respostas incorretas.
 
 ---
 
@@ -87,56 +73,50 @@ A aplicação utiliza diferentes _personas_ de IA, cada uma com um papel especí
 
 ### Pré-requisitos
 
-- Navegador web moderno (Chrome, Firefox, etc.)
-- **Visual Studio Code** com a extensão _Live Server_ (recomendado)
-- Chave de API do **Google Gemini**
+- Navegador web atualizado
+- **Visual Studio Code** com extensão *Live Server* (recomendado)
+- Chave de API do **Google Gemini** (opcional)
 
 ### Passos
 
 1. **Clone o repositório:**
    ```bash
    git clone https://github.com/seu-usuario/ia-dev-academy.git
-   Acesse o diretório do projeto:
    ```
 
-bash
-Copiar
-Editar
-cd ia-dev-academy
-Configure a chave da API (opcional para Modo API):
+2. **Acesse o diretório do projeto:**
+   ```bash
+   cd ia-dev-academy
+   ```
 
-Por padrão, a aplicação usa um webhook n8n para proteger a chave do Gemini.
+3. **Configure a chave da API (opcional):**
+   - Por padrão, a aplicação usa um **webhook n8n** para proteger a chave.
+   - Para desenvolvimento local, edite `script.js`:
+     ```javascript
+     if (useApi) {
+         // Substitua a chamada ao API_BACK_END pela sua chave local
+     }
+     ```
 
-Para desenvolvimento local, edite script.js:
+4. **Inicie a aplicação:**
+   - Clique com o botão direito em `index.html`
+   - Selecione **"Open with Live Server"**
+   - O navegador abrirá automaticamente
 
-javascript
-Copiar
-Editar
-if (useApi) {
-// Substitua a chamada ao API_BACK_END pela sua chave local
-}
-Inicie a aplicação:
+---
 
-Clique com o botão direito em index.html
+## 👨‍💻 Como Usar
 
-Selecione "Open with Live Server"
+1. Abra a página inicial e siga o tutorial.
+2. Digite o tema da trilha que deseja criar.
+3. Escolha entre **Modo Manual** ou **Modo API**.
+4. Clique em **"Gerar Trilha"**.
+5. Acompanhe seu progresso em **"Minhas Trilhas"**.
+6. Estude, interaja com a IA e faça as avaliações.
+7. Gere seu certificado personalizado ao concluir.
 
-O navegador abrirá automaticamente
+---
 
-👨‍💻 Como Usar
-Abra a página e siga o tutorial inicial.
+## 📄 Licença
 
-Digite o tema da trilha que deseja criar.
-
-Escolha Modo Manual ou Modo API.
-
-Clique em "Gerar Trilha".
-
-Acompanhe seu progresso em "Minhas Trilhas".
-
-Estude, interaja com a IA e faça as avaliações.
-
-Ao concluir, gere seu certificado personalizado.
-
-📄 Licença
-Este projeto está licenciado sob a Licença MIT.
+Este projeto está licenciado sob a **Licença MIT**.
