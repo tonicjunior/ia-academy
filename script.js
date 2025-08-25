@@ -76,10 +76,6 @@ function renderTutorialStep(stepIndex) {
     "hidden",
     stepIndex !== tutorialSteps.length - 1
   );
-  $("#tutorial-skip-btn").classList.toggle(
-    "hidden",
-    stepIndex === tutorialSteps.length - 1
-  );
 
   const progressContainer = $("#tutorial-progress");
   progressContainer.innerHTML = "";
@@ -1346,7 +1342,6 @@ function setupEventListeners() {
     }
   });
 
-  $("#tutorial-skip-btn").addEventListener("click", closeTutorial);
   $("#tutorial-finish-btn").addEventListener("click", closeTutorial);
 
   $("#settings-btn").addEventListener("click", () =>
