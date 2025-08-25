@@ -1,17 +1,94 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
 
-const STORAGE_KEY = "iaDevAcademy_v9_state"; // Versão atualizada
+const STORAGE_KEY = "iaDevAcademy_v9_state";
+const CERTIFICATE_KEY = "iaAcademy_v9_certificate_info";
+const TUTORIAL_KEY = "iaAcademy_v1_tutorial_shown";
+const SHOW_SUPPORT_PROMPT = true;
+const API_BACK_END = "https://academy01.app.n8n.cloud/webhook/academy";
 let appState = {};
 let onManualResponseSubmit = null;
-let GEMINI_API_KEY = "";
+const THEME_KEY = "iaAcademy_theme_setting";
+let generatedCertificateUrl = null;
+let generatedCertificateName = null;
 
-const GEMINI_MODEL_NAME = "gemini-1.5-flash-latest";
-const BACKEND_API_URL = "https://apijs-production-2fd0.up.railway.app";
-const MAX_RETRIES = 3;
-const INITIAL_BACKOFF_DELAY_MS = 1000;
-const INTERACTIONS_BEFORE_QUIZ = 5;
-let isApiCallInProgress = false;
+const API_MODE_KEY = "iaAcademy_api_mode";
+const ASSISTANT_ENABLED_KEY = "iaAcademy_assistant_enabled";
+const tutorialSteps = [
+  {
+    title: "Bem-vindo(a) ao IA.Academy!",
+    content: `Este é o seu assistente pessoal de aprendizado. Vamos ver como você pode transformar qualquer assunto em uma trilha de estudos completa em segundos.`,
+  },
+  {
+    title: "1. Crie sua Trilha de Estudos",
+    content: `Tudo começa aqui! No campo <strong>"Qual trilha você quer criar hoje?"</strong>, digite o tema que você deseja aprender. Pode ser qualquer coisa, como "JavaScript para iniciantes" ou "História da Arte Renascentista".`,
+  },
+  {
+    title: "2. Escolha o Modo de Geração",
+    content: `Você pode escolher entre dois modos:<br><br>
+              <strong>Modo Manual:</strong> Nós te damos o prompt e você mesmo(a) cola no seu assistente de IA preferido para gerar o conteúdo.<br>
+              <strong>Modo API:</strong> Deixa que a nossa IA cuida de tudo automaticamente para você!`,
+  },
+  {
+    title: "3. Acesse e Estude",
+    content: `Após gerar, sua nova trilha aparecerá na seção <strong>"Minhas Trilhas"</strong>. Basta clicar em "Continuar" para mergulhar no aprendizado, com aulas, exemplos e avaliações.`,
+  },
+  {
+    title: "4. Ajuste as Configurações",
+    content: `No canto superior direito, você encontrará o ícone de engrenagem. Clique nele para personalizar sua experiência: ativar o <strong>Modo Escuro</strong>, gerenciar seu nome para os certificados e ajustar outras preferências.`,
+  },
+  {
+    title: "5. Use o Assistente IA",
+    content: `No canto inferior direito, você verá um ícone de chat. Este é o seu <strong>Assistente IA Externo (DeepSeek)</strong>. Se tiver qualquer dúvida sobre o conteúdo que está estudando, pode abri-lo a qualquer momento para perguntar e obter ajuda extra.`,
+  },
+  {
+    title: "Tudo Pronto!",
+    content: `É simples assim. Agora você está pronto(a) para começar a aprender. Clique no botão abaixo para criar sua primeira trilha. Bom estudo!`,
+  },
+];
+
+let currentTutorialStep = 0;
+
+function showTutorial() {
+  $("#tutorial-modal").classList.remove("hidden");
+  renderTutorialStep(currentTutorialStep);
+}
+
+function renderTutorialStep(stepIndex) {
+  const step = tutorialSteps[stepIndex];
+  $("#tutorial-title").textContent = step.title;
+  $("#tutorial-step-content").innerHTML = step.content;
+
+  $("#tutorial-prev-btn").classList.toggle("hidden", stepIndex === 0);
+  $("#tutorial-next-btn").classList.toggle(
+    "hidden",
+    stepIndex === tutorialSteps.length - 1
+  );
+  $("#tutorial-finish-btn").classList.toggle(
+    "hidden",
+    stepIndex !== tutorialSteps.length - 1
+  );
+  $("#tutorial-skip-btn").classList.toggle(
+    "hidden",
+    stepIndex === tutorialSteps.length - 1
+  );
+
+  const progressContainer = $("#tutorial-progress");
+  progressContainer.innerHTML = "";
+  for (let i = 0; i < tutorialSteps.length; i++) {
+    const dot = document.createElement("div");
+    dot.className = "progress-dot";
+    if (i === stepIndex) {
+      dot.classList.add("active");
+    }
+    progressContainer.appendChild(dot);
+  }
+}
+
+function closeTutorial() {
+  $("#tutorial-modal").classList.add("hidden");
+  localStorage.setItem(TUTORIAL_KEY, "true");
+}
 
 const ICONS = {
   LOCKED: `<svg class="icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
@@ -20,49 +97,86 @@ const ICONS = {
 };
 
 const PROMPTS = {
-  COORDENADOR: `Você é um Coordenador Acadêmico de IA. Sua tarefa é criar um plano de estudos detalhado para um tema. A resposta deve ser ESTRITAMENTE um objeto JSON com a estrutura: { "title": "...", "description": "...", "modules": [ { "title": "Nome do Módulo", "subtopics": [ { "title": "Nome do Subtópico" } ] } ] }. Crie de 3 a 5 módulos. Cada módulo deve ter de 4 a 6 subtópicos, ordenados do básico ao avançado. Não inclua nenhum outro texto ou formatação. Apenas o JSON puro.`,
-  PROFESSOR: `Você é o 'Professor IA', um especialista no tema e um educador excepcional. Sua missão é ensinar o subtópico atual de forma clara, didática e envolvente.
+  COORDENADOR: `Você é um Coordenador Acadêmico de IA. Sua tarefa é criar um plano de estudos detalhado e granular para um tema. A resposta deve ser ESTRITAMENTE um objeto JSON puro.
+
+REGRAS:
+1. **Estrutura Fixa**: A resposta DEVE seguir a estrutura: { "title": "...", "description": "...", "modules": [ { "title": "...", "subtopics": [ { "title": "...", "learningObjective": "..." } ] } ] }.
+2. **Conteúdo**: Crie de 3 a 5 módulos. Cada módulo deve ter de 4 a 6 subtópicos, ordenados de forma lógica (básico ao avançado).
+3. **Objetivo de Aprendizagem (CRÍTICO!)**: O 'learningObjective' é a regra mais importante. Ele deve ser **atômico e mensurável**. Cada subtópico deve focar em UMA ÚNICA habilidade ou conhecimento.
+   * **Exemplo RUIM**: "Aprender sobre Chambari". (Muito amplo)
+   * **Exemplo BOM**: "Definir o que é o prato Chambari, listando seus ingredientes essenciais." (Focado e mensurável)
+   * **Exemplo BOM**: "Explicar o método de cozimento lento tradicional do Chambari." (Focado em um processo específico)
+4. **Formato**: Não inclua nenhum texto ou formatação fora do objeto JSON.`,
+  PROFESSOR: `Você é o 'Professor IA', um especialista didático e envolvente. Sua missão é criar aulas didáticas, ricas e **altamente focadas**, evitando explorar temas que serão tratados em outros momentos. Sua resposta DEVE SEMPRE seguir a estrutura JSON especificada.
+
+REGRAS GERAIS:
+1. **FOCO ABSOLUTO NO OBJETIVO**: O conteúdo deve servir **exclusivamente para que o aluno atinja o 'learningObjective' recebido**. Ensine apenas o que é estritamente necessário para cumprir esse objetivo, ignorando temas tangenciais que pertençam a outros subtópicos.
+2. **NARRATIVA DIDÁTICA**: A 'narrative' deve ser clara, organizada e de fácil assimilação, usando analogias simples, exemplos concretos e explicações estruturadas. Use Markdown para dar destaque a termos, listas e conceitos importantes.
+3. **LIMITE DE EXPLICAÇÃO**:
+   * Cada chamada ('callNumber') deve entregar um conteúdo completo, mas **sem extrapolar** o escopo daquela etapa.
+   * Não antecipe conteúdos de chamadas futuras. A aplicação só pode ser ensinada depois do fundamento.
+4. **FORMATO DE SAÍDA FIXO**: A resposta DEVE SEMPRE usar este formato JSON, sem exceções:
+   {
+     "narrative": "Seu texto aqui.",
+     "options": [
+       { "text": "Texto da opção 1", "action": "..." },
+       { "text": "Texto da opção 2", "action": "..." }
+     ],
+     "isTopicEnd": false
+   }
+
+---
+### MODO ENSINO (Input contém 'callNumber')
+Input de exemplo: \`{ "subtopicTitle": "...", "learningObjective": "...", "callNumber": X }\`
+
+**Etapas obrigatórias:**
+- **callNumber = 1** → *Fundamento* — Explique o conceito central necessário para o 'learningObjective'. Use analogias e seja direto.
+- **callNumber = 2** → *Aplicação* — Mostre como o conceito é usado ou aplicado na prática, com um exemplo que ilustre diretamente o 'learningObjective'.
+- **callNumber = 3** → *Síntese e Relevância* — Reforce a importância do que foi ensinado, conecte todo o conteúdo apresentado diretamente ao 'learningObjective' e encerre o subtópico. O \`isTopicEnd\` deve ser \`true\`.
+
+5. **CONSTRUÇÃO DAS OPTIONS**:
+   * Para 'callNumber' 1 e 2: Ofereça opções para prosseguir, aprofundar um termo e ou conceito  Ex: [{ "text": "Continuar", "action": "prosseguir" }, { "text": "O que significa [termo]?", "action": "aprofundar_especifico" }, { "text": "O que significa [conceito]?", "action": "aprofundar_especifico" }]
+   * Para 'callNumber' 3: Ofereça opções para iniciar a avaliação ou revisar.
+
+---
+### MODO RESPOSTA (Input contém 'userQuestion')
+Input de exemplo: \`{ "subtopicTitle": "...", "learningObjective": "...", "userQuestion": "..." }\`
+
+**Procedimento:**
+1. Avalie se a pergunta é relevante para o **'learningObjective' atual**.
+2. Responda com clareza e simplicidade.
+3. Se for irrelevante, indique com educação que a pergunta será abordada em outro momento e traga o aluno de volta ao foco do objetivo atual.
+
+As 'options' devem sempre guiar o aluno de volta à trilha. Exemplo:
+\`[ { "text": "Entendi, podemos continuar.", "action": "prosseguir" } ]\`
+
+**'isTopicEnd'**: Sempre \`false\` neste cenário.`,
+  AVALIADOR: `Você é um 'Avaliador de IA' preciso e rigoroso. Sua tarefa é criar uma avaliação que meça EXCLUSIVAMENTE se o objetivo de aprendizado foi alcançado, com base no conteúdo ensinado.
 
 REGRAS OBRIGATÓRIAS:
-1.  **Formato de Resposta**: Sua resposta DEVE SER ESTRITAMENTE um objeto JSON. Não inclua NENHUM texto fora do JSON.
-2.  **Estrutura JSON**:
-    {
-      "narrative": "Sua explicação. Use markdown para formatação: **negrito** para termos importantes, \`código inline\` para snippets, e \\\`\\\`\\\` para blocos de código. Para criar parágrafos, insira o caractere de escape de nova linha (\\n) diretamente na string JSON.",
-      "options": [
-        { "text": "Texto da opção 1, como uma pergunta do aluno", "action": "aprofundar" },
-        { "text": "Texto da opção 2, como uma pergunta do aluno", "action": "exemplo_pratico" }
-      ],
-      "isTopicEnd": false
-    }
-3.  **Interatividade Pedagógica**: Após sua explicação ('narrative'), ofereça 2 a 4 opções ('options') que promovam o engajamento. Cada objeto no array 'options' DEVE ter a estrutura: { "text": "Texto da pergunta do aluno", "action": "tipo_da_acao" }. Tipos de ação ('action') sugeridos:
-    * **"aprofundar"**: Para detalhar um termo-chave. (Ex: "Pode me explicar melhor o que é 'assíncrono'?")
-    * **"exemplo_pratico"**: Para um exemplo de código ou caso de uso. (Ex: "Me mostre um exemplo prático de uma Promise.")
-    * **"analogia"**: Para explicar um conceito com uma analogia. (Ex: "Qual seria uma boa analogia para a diferença entre let e const?")
-    * **"prosseguir"**: Para avançar quando o raciocínio estiver completo. (Ex: "Ok, entendi. Podemos ir para o próximo conceito?")
-    * **"escrever_pergunta"**: Ofereça essa opção para que o aluno possa fazer uma pergunta aberta. (Ex: "Na verdade, eu tenho outra pergunta...")
-4.  **Fim do Tópico**: Quando o subtópico for totalmente coberto, responda com \`"isTopicEnd": true\` e uma mensagem final.
-5. **Preparação para Avaliação**: Sua explicação deve apresentar informações suficientemente específicas e estruturadas para que o Avaliador consiga gerar questões baseadas *apenas* nela. Destaque termos técnicos, definições, diferenças entre conceitos, exemplos e boas práticas.
-`,
- AVALIADOR: `Você é um 'Avaliador de IA'. Sua tarefa é criar uma avaliação com base *apenas* no conteúdo ENSINADO do subtópico atual, levando em conta o histórico da conversa. Não crie perguntas com base em conhecimentos fora da explicação fornecida.
+1. **Input do Sistema**: Você receberá: \`{ "learningObjective": "...", "consolidatedContent": "Todo o texto das narrativas do professor para este subtópico." }\`.
+2. **Fonte Única da Verdade**: Crie perguntas e alternativas usando APENAS as informações contidas em 'consolidatedContent'. Não adicione conhecimento externo.
+3. **Foco no Objetivo**: As perguntas devem AVALIAR DIRETAMENTE a habilidade descrita no 'learningObjective'. Se o objetivo era "comparar X e Y", a pergunta deve exigir essa comparação.
+4. **Formato de Resposta**: A resposta DEVE ser um array JSON contendo exatamente 8 objetos de questão.
+5. **Estrutura do Objeto de Questão**:
+   {
+     "question": "Texto da pergunta?",
+     "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
+     "correctAnswer": "Opção C"
+   }
+6. **Qualidade dos Distratores**: Crie alternativas incorretas ('distratores') que sejam plausíveis, mas comprovadamente erradas segundo o 'consolidatedContent'. Evite opções absurdas.`,
+  TUTOR: `Você é um 'Tutor de IA' paciente e eficaz. O aluno cometeu erros no quiz. Sua missão é fornecer um feedback claro e construtivo para cada erro, reforçando o aprendizado.
 
 REGRAS OBRIGATÓRIAS:
-1. A resposta DEVE ser um array JSON contendo exatamente 10 objetos de questão.
-2. Cada objeto deve ter o formato:
-{
-  "question": "Texto da pergunta?",
-  "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
-  "correctAnswer": "Opção C"
-}
-3. As questões devem ser:
-- Direcionadas ao que foi ensinado.
-- Em níveis variados: 3 fáceis, 4 intermediárias e 3 desafiadoras.
-- Com alternativas incorretas plausíveis, mas claramente erradas para quem entendeu o conteúdo.
-4. NÃO invente temas não abordados na explicação anterior. Priorize termos e ideias apresentadas na narrativa do professor.`,
-TUTOR: `Você é um 'Tutor de IA' paciente e didático. O aluno errou algumas questões no quiz. Sua tarefa é fornecer uma explicação clara para cada erro. A resposta DEVE ser um objeto JSON com a estrutura: { "explanations": ["explicação para o erro 1", "explicação para o erro 2", ...] }. Para cada explicação: 1. Confirme a resposta correta. 2. Explique POR QUE a resposta correta é a melhor. 3. Explique POR QUE a alternativa que o aluno marcou estava incorreta.
-4. Quando possível, mencione trechos da explicação original (narrative) que reforçam a resposta correta, para consolidar o aprendizado.
- Mantenha um tom encorajador. A ordem das explicações no array deve corresponder à ordem das questões erradas enviadas a você. Apenas o JSON, sem texto adicional.`,
+1. **Input do Sistema**: Você receberá as questões erradas, a resposta do aluno e o 'learningObjective' do subtópico.
+2. **Formato de Resposta**: A resposta DEVE ser um objeto JSON com a estrutura: \`{ "explanations": ["explicação para o erro 1", "explicação para o erro 2", ...] }\`. Apenas o JSON puro.
+3. **Conteúdo da Explicação**: Para cada erro, siga estes passos:
+   a. Indique a resposta correta de forma clara.
+   b. Explique POR QUE a resposta está correta, citando ou parafraseando a parte relevante do material que o aluno estudou.
+   c. Explique POR QUE a alternativa que o aluno marcou estava incorreta, mostrando a fonte da confusão.
+   d. Reafirme como a resposta correta está diretamente ligada ao 'learningObjective' do subtópico.
+   e. Use um tom encorajador, como "Ótima tentativa! Esse é um ponto que confunde mesmo. Vamos esclarecer:"`,
 };
-
 const PROMPT_TITLES = {
   COORDENADOR: "Gerando Currículo da Trilha...",
   PROFESSOR: "Gerando Aula do Professor IA...",
@@ -70,71 +184,81 @@ const PROMPT_TITLES = {
   TUTOR: "Tutor IA Preparando Feedback...",
 };
 
-async function loadApiKeys() {
-  try {
-    const response = await fetch(`${BACKEND_API_URL}/get-chat-key`);
-    if (!response.ok) throw new Error(`Status: ${response.status}`);
-    const data = await response.json();
-    GEMINI_API_KEY = data.key;
-  } catch (error) {
-    console.error("Erro ao carregar chave da API:", error);
-    $("#api-mode-toggle").checked = false;
-    appState.useApiMode = false;
-    saveState();
-    alert(
-      "Não foi possível carregar a chave da API. O modo API foi desativado. Você pode continuar no modo manual."
-    );
+const formatNarrative = (narrative) =>
+  (narrative || "")
+    .replace(/```(\w+)?\n([\s\S]+?)\n```/g, "<pre>$2</pre>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.*?)\*/g, "<em>$1</em>")
+    .replace(/\\n|\n/g, "<br>");
+
+function applyTheme(theme) {
+  const themeSwitch = $("#theme-switch");
+  if (theme === "dark") {
+    document.documentElement.classList.add("dark");
+    if (themeSwitch) themeSwitch.checked = true;
+  } else {
+    document.documentElement.classList.remove("dark");
+    if (themeSwitch) themeSwitch.checked = false;
   }
 }
 
-async function callGeminiApi(requestBody, retries = 0, options = {}) {
-  const { showGlobalLoader = true } = options; // Padrão é mostrar o loader
-  if (isApiCallInProgress) return;
-  isApiCallInProgress = true;
-  if (showGlobalLoader) {
-    showLoadingIndicator(false);
-  }
+function initializeSettings() {
+  const savedTheme = localStorage.getItem(THEME_KEY) || "light";
+  applyTheme(savedTheme);
 
-  try {
-    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(GEMINI_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-    });
+  const savedApiMode = localStorage.getItem(API_MODE_KEY) === "true";
+  $("#api-mode-toggle").checked = savedApiMode;
+  $("#api-mode-switch-settings").checked = savedApiMode;
+  document.dispatchEvent(new Event("apiModeChange"));
 
-    if (!response.ok) {
-      if (response.status === 429 && retries < MAX_RETRIES) {
-        const delay =
-          INITIAL_BACKOFF_DELAY_MS * Math.pow(2, retries) +
-          Math.random() * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        isApiCallInProgress = false;
-        // Passa as opções na chamada recursiva
-        return callGeminiApi(requestBody, retries + 1, options);
-      }
-      throw new Error(`Erro da API: ${response.status}`);
+  const assistant = localStorage.getItem(ASSISTANT_ENABLED_KEY);
+  const savedAssistantState = assistant ?? "true";
+  $("#assistant-switch").checked = savedAssistantState;
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem(THEME_KEY) || "light";
+  applyTheme(savedTheme);
+}
+
+function cycleTheme() {
+  const currentTheme = localStorage.getItem(THEME_KEY) || "light";
+  const newTheme = currentTheme === "light" ? "dark" : "light";
+
+  localStorage.setItem(THEME_KEY, newTheme);
+  applyTheme(newTheme);
+}
+
+function generateHistoryHtml(chatHistory) {
+  let historyHtml = '<div class="chat-history-container">';
+  chatHistory.forEach((message) => {
+    if (message.role === "model") {
+      try {
+        const scene = JSON.parse(message.parts[0].text);
+        historyHtml += `<div class="chat-message model-message"><div class="narrative-content">${formatNarrative(
+          scene.narrative
+        )}</div></div>`;
+      } catch (e) {}
+    } else if (message.role === "user") {
+      try {
+        const userPayload = JSON.parse(message.parts[0].text);
+
+        let userText;
+        if (userPayload.userQuestion) {
+          userText = `<strong>Sua pergunta:</strong> ${userPayload.userQuestion}`;
+        } else if (userPayload.text) {
+          userText = `<strong>Sua escolha:</strong> ${userPayload.text}`;
+        } else {
+          userText = `<strong>Sua escolha:</strong> Continuar.`;
+        }
+
+        historyHtml += `<div class="chat-message user-message"><p>${userText}</p></div>`;
+      } catch (e) {}
     }
-    const data = await response.json();
-    if (!data.candidates || !data.candidates[0].content) {
-      throw new Error(
-        "Resposta inválida da API, pode ter sido bloqueada por segurança."
-      );
-    }
-    const aiResponseText = data.candidates[0].content.parts[0].text;
-    return JSON.parse(aiResponseText);
-  } catch (error) {
-    console.error("Erro na chamada da API Gemini:", error);
-    showErrorMessage(
-      "Ocorreu um erro ao comunicar com a IA. Verifique sua conexão, a chave da API ou tente usar o modo manual."
-    );
-    return null;
-  } finally {
-    isApiCallInProgress = false;
-    if (showGlobalLoader) {
-      hideLoadingIndicator();
-    }
-  }
+  });
+  historyHtml += "</div>";
+  return historyHtml;
 }
 
 function loadState() {
@@ -142,7 +266,6 @@ function loadState() {
   appState = s
     ? JSON.parse(s)
     : {
-        useApiMode: true,
         activeTrilhaId: null,
         activeModuleIndex: -1,
         activeSubtopicIndex: -1,
@@ -168,31 +291,61 @@ function getActiveTopic() {
   ];
 }
 
-async function processRequest(requestType, context, options = {}) {
+async function processRequest(requestType, context) {
+  if (SHOW_SUPPORT_PROMPT && localStorage.getItem(API_MODE_KEY) === "true") {
+    showSupportModal();
+    return;
+  }
+
+  const useApi = localStorage.getItem(API_MODE_KEY) === "true";
   const sysPrompt = PROMPTS[requestType];
   const requestBody = {
     contents: context.history,
     systemInstruction: { parts: [{ text: sysPrompt }] },
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 8192,
       response_mime_type: "application/json",
     },
   };
 
-  if (appState.useApiMode && GEMINI_API_KEY) {
-    const result = await callGeminiApi(requestBody, 0, options);
-    if (result) {
-      context.onSuccess(result);
+  showLoadingModal(PROMPT_TITLES[requestType]);
+  if (useApi) {
+    try {
+      const response = await fetch(API_BACK_END, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+      const responseData = await response.json();
+      if (
+        !responseData ||
+        !responseData[0] ||
+        typeof responseData[0].output !== "string"
+      ) {
+        throw new Error("Formato de resposta da API inesperado.");
+      }
+      const jsonOutput = JSON.parse(responseData[0].output);
+      context.onSuccess(jsonOutput);
+    } catch (error) {
+      console.error("Erro na chamada da API:", error);
+      await showConfirmationModal(
+        "Erro na API",
+        `Ocorreu um erro: ${error.message}`,
+        { confirmText: "OK", showCancel: false }
+      );
+    } finally {
+      hideLoadingModal();
     }
   } else {
+    hideLoadingModal();
     showPromptModal(PROMPT_TITLES[requestType], requestBody, context.onSuccess);
   }
 }
-
-function showScreen(name) {
-  $("#dashboard-screen").classList.toggle("hidden", name !== "dashboard");
-  $("#learning-screen").classList.toggle("hidden", name !== "learning");
+function showScreen(screenName) {
+  $$(".screen").forEach((s) => s.classList.add("hidden"));
+  $(`#${screenName}`).classList.remove("hidden");
 }
 
 function renderDashboard() {
@@ -200,17 +353,20 @@ function renderDashboard() {
   const wrapper = $("#trilhas-container-wrapper");
   container.innerHTML = "";
 
-  const trilhas = Object.values(appState.trilhas);
+  const trilhas = Object.values(appState.trilhas).sort(
+    (a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0)
+  );
 
   if (trilhas.length > 0) {
     wrapper.classList.remove("hidden");
     trilhas.forEach((trilha) => {
       const card = document.createElement("div");
       card.className = "trilha-card";
-      card.onclick = () => selectTrilha(trilha.id);
+      card.dataset.trilhaId = trilha.id;
+
       let total = 0,
         done = 0;
-      if (trilha && trilha.modules?.length) {
+      if (trilha.modules?.length) {
         trilha.modules.forEach((m) => {
           total += m.subtopics.length;
           done += m.subtopics.filter((st) => st.completed).length;
@@ -218,25 +374,43 @@ function renderDashboard() {
       }
       const pct = total > 0 ? (done / total) * 100 : 0;
       card.innerHTML = `
-                                <h3>${trilha.title}</h3>
-                                <p>${
-                                  trilha.description || "Continue seus estudos."
-                                }</p>
-                                <div>
-                                    <div class="progress-bar-container">
-                                        <div class="progress-bar" style="width:${pct}%"></div>
-                                    </div>
-                                    <p class="progress-text">${Math.round(
-                                      pct
-                                    )}% concluído</p>
-                                </div>
-                              `;
+    <div class="trilha-header">
+        <div class="trilha-info">
+        <h3 class="trilha-title">${trilha.title}</h3>
+        <button class="delete-trilha-btn" data-trilha-id="${
+          trilha.id
+        }" title="Apagar trilha">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        </button>
+        </div>
+        <p class="trilha-description">${
+          trilha.description || "Continue seus estudos."
+        }</p>
+        
+        <div class="trilha-card-footer">
+            <div class="trilha-content">
+                <div class="progress-section">
+                    <div class="progress-header">
+                    <span>Progresso</span>
+                    <span class="progress-percent">${Math.round(pct)}%</span>
+                    </div>
+                    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+                </div>
+            </div>
+            <div class="trilha-footer">
+                <button class="continue-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                    Continuar
+                </button>
+            </div>
+        </div>
+        </div>`;
       container.appendChild(card);
     });
   } else {
     wrapper.classList.add("hidden");
   }
-  showScreen("dashboard");
+  showScreen("dashboard-section");
 }
 
 function renderLearningScreen() {
@@ -244,18 +418,32 @@ function renderLearningScreen() {
   if (!tr) return renderDashboard();
 
   $("#sidebar-title").textContent = tr.title;
+  let totalTopics = 0,
+    completedTopics = 0;
+  tr.modules.forEach((m) => {
+    totalTopics += m.subtopics.length;
+    completedTopics += m.subtopics.filter((st) => st.completed).length;
+  });
+  const overallPct =
+    totalTopics > 0 ? (completedTopics / totalTopics) * 100 : 0;
+  $("#overall-progress-percent").textContent = `${Math.round(overallPct)}%`;
+  $(".overall-progress .progress-fill").style.width = `${overallPct}%`;
+
   const modulesList = $("#modules-list");
   modulesList.innerHTML = "";
 
   const activeTopic = getActiveTopic();
   const isTopicInProgress =
     activeTopic && activeTopic.chatHistory.length > 0 && !activeTopic.completed;
-
   let subtopicUnlocked = true;
+
   tr.modules.forEach((mod, mIdx) => {
-    const moduleLi = document.createElement("li");
-    moduleLi.innerHTML = `<h3 class="module-title">${mod.title}</h3>`;
+    const moduleSection = document.createElement("div");
+    moduleSection.className = "module-section";
+    moduleSection.innerHTML = `<h3 class="module-title">${mod.title}</h3>`;
     const subtopicsUl = document.createElement("ul");
+    subtopicsUl.className = "subtopics-list";
+
     mod.subtopics.forEach((sub, sIdx) => {
       const li = document.createElement("li");
       li.className = "subtopic-item";
@@ -263,212 +451,301 @@ function renderLearningScreen() {
       const isActive =
         mIdx === appState.activeModuleIndex &&
         sIdx === appState.activeSubtopicIndex;
-
       if (sub.completed) {
         li.classList.add("completed");
         icon = ICONS.COMPLETED;
       }
-      if (isActive) {
-        li.classList.add("active");
-      }
+      if (isActive) li.classList.add("active");
 
-      let isClickable = false;
-      if (isTopicInProgress) {
-        if (isActive) {
-          isClickable = true;
-        }
-      } else {
-        if (subtopicUnlocked) {
-          isClickable = true;
-        }
-      }
+      const isClickable =
+        (isTopicInProgress && isActive) ||
+        (!isTopicInProgress && subtopicUnlocked) ||
+        sub.completed;
 
       if (isClickable) {
         li.onclick = () => selectTopic(mIdx, sIdx);
-      } else {
-        li.classList.add("disabled");
-      }
-
-      if (!subtopicUnlocked && !sub.completed) {
+      } else if (!sub.completed) {
         li.classList.add("locked");
         icon = ICONS.LOCKED;
       }
 
-      if (subtopicUnlocked && !sub.completed) {
-        subtopicUnlocked = false;
-      }
+      if (subtopicUnlocked && !sub.completed) subtopicUnlocked = false;
 
-      li.innerHTML = `${icon}<span>${sub.title}</span>`;
+      li.innerHTML = `<div class="subtopic-icon">${icon}</div><div class="subtopic-content"><div class="subtopic-title">${sub.title}</div></div>`;
       subtopicsUl.appendChild(li);
     });
-    moduleLi.appendChild(subtopicsUl);
-    modulesList.appendChild(moduleLi);
+    moduleSection.appendChild(subtopicsUl);
+    modulesList.appendChild(moduleSection);
   });
 
   if (tr.completed) {
+    renderCurrentStateView();
     renderTrilhaCompletedView();
   } else {
     renderCurrentStateView();
   }
-  showScreen("learning");
+  showScreen("learning-section");
 }
 
 function renderCurrentStateView() {
   const topic = getActiveTopic();
+  const trilha = getActiveTrilha();
+  const contentHeader = $("#content-header");
+
+  $("#content-navigation-review").innerHTML = "";
+
   if (!topic) {
-    showErrorMessage("Selecione um tópico na barra lateral para começar.");
+    $(
+      "#learning-content"
+    ).innerHTML = `<p>Selecione um tópico na barra lateral para começar.</p>`;
+    contentHeader.innerHTML = "";
+    $("#content-navigation").innerHTML = "";
     return;
   }
+
+  const topicModule = trilha.modules[appState.activeModuleIndex];
+  contentHeader.innerHTML = `
+    <div class="breadcrumb">
+      <span>${topicModule.title}</span>
+    </div>
+    <div class="content-title-section">
+      <div class="title-info"><h1>${topic.title}</h1></div>
+    </div>`;
 
   if (topic.quiz && typeof topic.quiz.score === "number") {
     renderQuizResultView(topic);
   } else if (topic.quiz) {
     renderQuizView(topic);
+  } else if (topic.chatHistory.length > 0) {
+    renderSceneView(topic);
   } else {
-    const lastMessage = topic.chatHistory.slice(-1)[0];
-    if (lastMessage && lastMessage.role === "model") {
-      renderSceneView(JSON.parse(lastMessage.parts[0].text));
-    } else {
-      startOrContinueTopic();
-    }
+    $("#learning-content").innerHTML = `
+          <div class="loading-indicator" style="display:block; padding: 2rem; text-align:center;">
+              <div class="spinner"></div>
+              <p>Gerando o conteúdo do tópico...</p>
+          </div>`;
+    $("#content-navigation").innerHTML = "";
+    startOrContinueTopic();
   }
 }
 
-function renderSceneView(scene) {
-  const container = $("#main-content");
-  container.innerHTML = `
-                          <div id="scene-container" class="content-card">
-                              <div class="scene-text">${scene.narrative
-                                .replace(
-                                  /```(\w+)?\n([\s\S]+?)\n```/g,
-                                  "<pre>$2</pre>"
-                                )
-                                .replace(/`([^`]+)`/g, "<code>$1</code>")
-                                .replace(
-                                  /\*\*(.*?)\*\*/g,
-                                  "<strong>$1</strong>"
-                                )
-                                .replace(/\*(.*?)\*/g, "<em>$1</em>")
-                                .replace(/\\n|\n/g, "<br>")}
-                              </div>
-                          </div>
-                          <div class="options-container"></div>
-                          `;
-  const optionsContainer = $(".options-container");
-  if (scene.isTopicEnd) {
-    const btn = document.createElement("button");
-    btn.className = "option-btn";
-    btn.style.backgroundColor = "var(--success-color)";
-    btn.style.color = "white";
-    btn.textContent = "Tudo certo! Iniciar Avaliação →";
-    btn.onclick = generateQuiz;
-    optionsContainer.appendChild(btn);
-  } else {
-    scene.options.forEach((opt) => {
-      const btn = document.createElement("button");
-      btn.className = "option-btn";
-      btn.textContent = opt.text; // Agora sempre usará 'text' por causa da normalização
-      btn.onclick = () => handleUserInteraction(opt);
-      optionsContainer.appendChild(btn);
-    });
+function renderSceneView(topic) {
+  const container = $("#learning-content");
+  const navContainer = $("#content-navigation");
+
+  let effectiveHistory = [...topic.chatHistory];
+  let lastMessage =
+    effectiveHistory.length > 0
+      ? effectiveHistory[effectiveHistory.length - 1]
+      : null;
+
+  if (lastMessage && lastMessage.role === "user") {
+    effectiveHistory.pop();
+    lastMessage =
+      effectiveHistory.length > 0
+        ? effectiveHistory[effectiveHistory.length - 1]
+        : null;
   }
+
+  if (!lastMessage || lastMessage.role !== "model") {
+    container.innerHTML =
+      "<p>Ainda não há conteúdo para este tópico. Iniciando...</p>";
+    navContainer.innerHTML = "";
+    topic.chatHistory = [];
+    saveState();
+    startOrContinueTopic();
+    return;
+  }
+
+  const lastScene = JSON.parse(lastMessage.parts[0].text);
+  const modelHistory = effectiveHistory.filter((m) => m.role === "model");
+  const historyCount = modelHistory.length - 1;
+
+  let historyToggleHtml = "";
+  if (historyCount > 0) {
+    historyToggleHtml = `<button id="history-toggle-btn">Ver Histórico de Interação (${historyCount})</button>`;
+  }
+
+  let historyHtml = `<div id="history-content" class="hidden">${generateHistoryHtml(
+    effectiveHistory.slice(0, -1)
+  )}</div>`;
+  let narrativeHtml = `<div class="narrative-content">${formatNarrative(
+    lastScene.narrative
+  )}</div>`;
+
+  let optionsHtml = '<div class="options-container">';
+  if (lastScene.isTopicEnd) {
+    optionsHtml += `<button id="start-quiz-btn" class="option-btn btn-primary-action">Tudo certo! Iniciar Avaliação →</button>`;
+  } else {
+    lastScene.options.forEach((opt) => {
+      optionsHtml += `<button class="option-btn" data-option='${JSON.stringify(
+        opt
+      )}'>${opt.text}</button>`;
+    });
+    const freeFormOption = {
+      text: "Tenho outra dúvida",
+      action: "escrever_pergunta",
+    };
+    optionsHtml += `<button class="option-btn" data-option='${JSON.stringify(
+      freeFormOption
+    )}'>${freeFormOption.text}</button>`;
+  }
+  optionsHtml += "</div>";
+
+  container.innerHTML =
+    historyToggleHtml + historyHtml + narrativeHtml + optionsHtml;
+  navContainer.innerHTML = "";
+
+  if ($("#history-toggle-btn")) {
+    $("#history-toggle-btn").onclick = () => {
+      const historyContent = $("#history-content");
+      const isVisible = historyContent.classList.toggle("visible");
+      historyContent.classList.toggle("hidden", !isVisible);
+      $("#history-toggle-btn").textContent = isVisible
+        ? `Ocultar Histórico (${historyCount})`
+        : `Ver Histórico de Interação (${historyCount})`;
+    };
+  }
+
+  if ($("#start-quiz-btn")) {
+    $("#start-quiz-btn").onclick = generateQuiz;
+  }
+  $$(".option-btn[data-option]").forEach((btn) => {
+    btn.onclick = () => {
+      let optionData;
+
+      try {
+        optionData = JSON.parse(btn.dataset.option);
+      } catch (e) {
+        optionData = btn.dataset.option;
+      }
+
+      handleUserInteraction(optionData);
+    };
+  });
 }
 
 function renderFreeFormQuestionView(originalOption) {
-  const optionsContainer = $(".options-container");
-  optionsContainer.innerHTML = `
-                          <textarea id="user-text-input" placeholder="${
-                            originalOption.placeholder ||
-                            "Faça sua pergunta aqui..."
-                          }"></textarea>
-                          <div class="text-input-options">
-                              <button id="cancel-user-text" class="option-btn btn-secondary">Cancelar</button>
-                              <button id="submit-user-text" class="option-btn">Enviar Pergunta</button>
-                          </div>
-                          `;
+  $(".options-container").innerHTML = `
+    <textarea id="user-text-input"  placeholder="${
+      originalOption.placeholder || "Faça sua pergunta..."
+    }"></textarea>
+    <div class="text-input-options" style="display:flex; gap:1rem;">
+      <button id="cancel-user-text" class="option-btn" style="flex:1;">Cancelar</button>
+      <button id="submit-user-text" class="option-btn btn-primary-action" style="flex:1;">Enviar</button>
+    </div>`;
 
   $("#submit-user-text").onclick = () => {
     const userInput = $("#user-text-input").value.trim();
     if (!userInput) return;
-    const userMessage = `Ignorei as opções e fiz minha própria pergunta: "${userInput}". Por favor, responda de forma concisa e depois continue a aula, me dando novas opções para prosseguir.`;
-    continueProfessorInteraction(userMessage);
-  };
 
-  $("#cancel-user-text").onclick = () => {
-    renderCurrentStateView();
+    const professorPayload = {
+      userQuestion: userInput,
+    };
+    continueProfessorInteraction(professorPayload);
   };
+  $("#cancel-user-text").onclick = renderCurrentStateView;
 }
 
 function renderQuizView(topic) {
-  const container = $("#main-content");
+  const container = $("#learning-content");
+  const navContainer = $("#content-navigation");
+
+  try {
+    let formHTML = `<form id="quiz-form">`;
+
+    if (!topic.quiz || !Array.isArray(topic.quiz.questions)) {
+      throw new Error(
+        "O formato do quiz é inválido ou as questões não foram fornecidas como um array."
+      );
+    }
+
+    topic.quiz.questions.forEach((q, qIdx) => {
+      if (!q || typeof q.question !== "string" || !Array.isArray(q.options)) {
+        throw new Error(`A estrutura da questão ${qIdx + 1} é inválida.`);
+      }
+
+      formHTML += `<div class="quiz-question"><p><strong>${qIdx + 1}. ${
+        q.question
+      }</strong></p><ul class="quiz-options">`;
+      q.options.forEach((opt, oIdx) => {
+        formHTML += `<li class="quiz-option"><input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${opt}" required><label for="q${qIdx}o${oIdx}">${opt}</label></li>`;
+      });
+      formHTML += `</ul></div>`;
+    });
+
+    formHTML += `</form>`;
+    container.innerHTML = `<h3>Avaliação: ${topic.title}</h3>${formHTML}`;
+    navContainer.innerHTML = `<button id="submit-quiz-btn" class="option-btn btn-primary-action">Enviar Avaliação</button>`;
+    $("#submit-quiz-btn").onclick = handleQuizSubmit;
+  } catch (error) {
+    console.error(
+      "Falha ao renderizar o quiz. O formato do JSON provavelmente está incorreto.",
+      error
+    );
+
+    const currentTopic = getActiveTopic();
+    if (currentTopic) {
+      currentTopic.quiz = null;
+      saveState();
+    }
+
+    container.innerHTML = `<p>Ocorreu um erro ao processar as questões da avaliação. Solicitando uma nova versão para a IA...</p>`;
+    navContainer.innerHTML = "";
+
+    setTimeout(() => {
+      generateQuiz();
+    }, 500);
+  }
+}
+
+function renderQuizResultView(topic) {
+  const container = $("#learning-content");
+  const navContainer = $("#content-navigation");
+  const navContainerReview = $("#content-navigation-review");
+  const { questions, answers, score } = topic.quiz;
+
   let formHTML = `<form id="quiz-form">`;
-  topic.quiz.questions.forEach((q, qIdx) => {
+  questions.forEach((q, qIdx) => {
     formHTML += `<div class="quiz-question"><p><strong>${qIdx + 1}. ${
       q.question
     }</strong></p><ul class="quiz-options">`;
+    const selectedValue = answers[qIdx];
     q.options.forEach((opt, oIdx) => {
-      formHTML += `<li class="quiz-option">
-                                  <input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${opt}" required>
-                                  <label for="q${qIdx}o${oIdx}">${opt}</label>
-                              </li>`;
+      const isCorrect = opt === q.correctAnswer;
+      const isSelected = opt === selectedValue;
+
+      let liClass = "quiz-option";
+      if (isCorrect) {
+        liClass += " correct";
+      } else if (isSelected) {
+        liClass += " incorrect";
+      }
+
+      formHTML += `
+        <li class="${liClass}">
+          <input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${opt}" disabled ${
+        isSelected ? "checked" : ""
+      }>
+          <label for="q${qIdx}o${oIdx}">${opt}</label>
+        </li>`;
     });
     formHTML += `</ul></div>`;
   });
   formHTML += `</form>`;
-  container.innerHTML = `
-                      <div id="quiz-container" class="content-card">
-                          <h3>Avaliação: ${topic.title}</h3>
-                          ${formHTML}
-                      </div>
-                      <div class="options-container">
-                          <button id="submit-quiz-btn" class="option-btn" style="background:var(--primary-color);color:white;">Enviar Avaliação</button>
-                      </div>
-                      `;
-  $("#submit-quiz-btn").onclick = handleQuizSubmit;
-}
-
-function renderQuizResultView(topic) {
-  renderQuizView(topic);
-  $("#submit-quiz-btn")?.remove();
-
-  const { questions, answers, score } = topic.quiz;
-  $$('#quiz-form input[type="radio"]').forEach(
-    (radio) => (radio.disabled = true)
-  );
-
-  questions.forEach((q, qIdx) => {
-    const selectedValue = answers[qIdx];
-    const questionElement = $$(".quiz-question")[qIdx];
-
-    const explanationContainer = document.createElement("div");
-    explanationContainer.id = `explanation-${qIdx}`;
-    explanationContainer.style.marginTop = "10px";
-    questionElement.appendChild(explanationContainer);
-
-    $$(`input[name="q${qIdx}"]`).forEach((radio) => {
-      const parentLi = radio.parentElement;
-      if (radio.value === q.correctAnswer) {
-        parentLi.classList.add("correct");
-      } else if (radio.value === selectedValue) {
-        parentLi.classList.add("incorrect");
-      }
-      if (radio.value === selectedValue) {
-        radio.checked = true;
-      }
-    });
-  });
+  container.innerHTML = `<h3>Avaliação: ${topic.title}</h3>${formHTML}`;
 
   const resultDiv = document.createElement("div");
   resultDiv.id = "quiz-result";
-  const optionsContainer = $(".options-container");
-  optionsContainer.innerHTML = "";
+
+  navContainerReview.innerHTML = "";
+  navContainer.innerHTML = "";
 
   if (score >= 70) {
     resultDiv.className = "passed";
-    resultDiv.innerHTML = `<h3>Parabéns! Você foi aprovado!</h3><p>Sua nota: ${score.toFixed(
+    resultDiv.innerHTML = `<h3>Parabéns! Você foi aprovado!</h3><p>Nota: ${score.toFixed(
       0
-    )}%</p><p style="margin-top:12px;">Clique no botão abaixo para avançar para o próximo desafio.</p>`;
-
+    )}%</p>`;
     if (
       !isLastTopicOfTrilha(
         getActiveTrilha(),
@@ -478,120 +755,172 @@ function renderQuizResultView(topic) {
     ) {
       const nextBtn = document.createElement("button");
       nextBtn.className = "option-btn";
-      nextBtn.style.backgroundColor = "var(--success-color)";
-      nextBtn.style.color = "white";
       nextBtn.textContent = "Próximo Subtópico →";
       nextBtn.onclick = goToNextTopic;
-      optionsContainer.appendChild(nextBtn);
-
-      const reviewBtn = document.createElement("button");
-      reviewBtn.id = "review-mistakes-btn";
-      reviewBtn.className = "option-btn";
-      reviewBtn.style.backgroundColor = "var(--primary-color)";
-      reviewBtn.style.color = "white";
-      reviewBtn.textContent = "Revisar Meus Erros com o Tutor IA";
-      reviewBtn.onclick = () => reviewMistakes(topic);
-
-      optionsContainer.appendChild(reviewBtn);
+      navContainer.appendChild(nextBtn);
     }
   } else {
     resultDiv.className = "failed";
     resultDiv.innerHTML = `<h3>Não foi desta vez.</h3><p>Sua nota: ${score.toFixed(
       0
-    )}%. Você precisa de 70% para aprovação.</p>`;
+    )}%. Você precisa de 70%.</p>`;
 
-    const studyBtn = document.createElement("button");
-    studyBtn.className = "option-btn";
-    studyBtn.textContent = "Estudar Novamente";
-    studyBtn.onclick = () => {
-      topic.chatHistory = [];
+    const retryBtn = document.createElement("button");
+    retryBtn.className = "option-btn";
+    retryBtn.textContent = "Tentar Novamente";
+
+    retryBtn.onclick = () => {
       topic.quiz = null;
       saveState();
-      renderCurrentStateView();
+      generateQuiz();
     };
-
-    const reviewBtn = document.createElement("button");
-    reviewBtn.id = "review-mistakes-btn";
-    reviewBtn.className = "option-btn";
-    reviewBtn.style.backgroundColor = "var(--primary-color)";
-    reviewBtn.style.color = "white";
-    reviewBtn.textContent = "Revisar Meus Erros com o Tutor IA";
-    reviewBtn.onclick = () => reviewMistakes(topic);
-
-    optionsContainer.appendChild(reviewBtn);
-    optionsContainer.appendChild(studyBtn);
+    navContainer.appendChild(retryBtn);
   }
-  $("#quiz-container").appendChild(resultDiv);
+
+  const reviewContentBtn = document.createElement("button");
+  reviewContentBtn.className = "option-btn";
+  reviewContentBtn.textContent = "Rever Conteúdo Estudado";
+  reviewContentBtn.onclick = () => {
+    const historyContainer = $("#study-history-container");
+    const isVisible = historyContainer.classList.toggle("visible");
+    historyContainer.classList.toggle("hidden", !isVisible);
+    if (isVisible) {
+      historyContainer.innerHTML = generateHistoryHtml(topic.chatHistory);
+      reviewContentBtn.textContent = "Ocultar Conteúdo Estudado";
+    } else {
+      historyContainer.innerHTML = "";
+      reviewContentBtn.textContent = "Rever Conteúdo Estudado";
+    }
+  };
+
+  const reviewMistakesBtn = document.createElement("button");
+  reviewMistakesBtn.id = "review-mistakes-btn";
+  reviewMistakesBtn.className = "option-btn";
+  reviewMistakesBtn.textContent = "Revisar Erros com Tutor IA";
+  reviewMistakesBtn.onclick = () => reviewMistakes(topic);
+
+  navContainerReview.prepend(reviewContentBtn);
+  if (score < 70) {
+    navContainer.prepend(reviewMistakesBtn);
+  }
+
+  $("#quiz-form").appendChild(resultDiv);
+  $("#quiz-form").insertAdjacentHTML(
+    "afterend",
+    '<div id="study-history-container" class="hidden"></div>'
+  );
+}
+
+async function showCertificatePreview() {
+  const trilha = getActiveTrilha();
+  const certInfo = JSON.parse(localStorage.getItem(CERTIFICATE_KEY));
+  const studentName = certInfo ? certInfo.name : "Nome do Aluno";
+  const courseName = trilha.title;
+  const completionDate = new Date().toLocaleDateString("pt-BR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  $("#nome-aluno-render").textContent = studentName;
+  $("#nome-curso-render").textContent = `${courseName}`;
+  $("#data-emissao-render").textContent = `Emitido em ${completionDate}`;
+
+  $("#certificate-preview-modal").classList.remove("hidden");
+}
+
+async function handleDownloadCertificate() {
+  const downloadBtn = document.querySelector("#download-certificate-btn");
+  downloadBtn.textContent = "Gerando Imagem...";
+  downloadBtn.disabled = true;
+
+  const originalElement = document.querySelector(
+    "#certificado-container-render"
+  );
+  const clone = originalElement.cloneNode(true);
+
+  clone.style.width = "820px";
+  clone.style.height = "636px";
+  clone.style.transform = "scale(1)";
+  clone.style.position = "absolute";
+  clone.style.left = "-9999px";
+  clone.style.top = "-9999px";
+
+  document.body.appendChild(clone);
+
+  const certInfo = JSON.parse(localStorage.getItem(CERTIFICATE_KEY)) || {};
+  const studentNameFile = (certInfo.name || "aluno")
+    .trim()
+    .replace(/\s+/g, "_");
+
+  try {
+    const canvas = await html2canvas(clone, {
+      scale: 2,
+      backgroundColor: null,
+      useCORS: true,
+      width: 820,
+      height: 636,
+    });
+    const imageDataUrl = canvas.toDataURL("image/png");
+
+    const previewDiv = document.getElementById("div-preview-certificado");
+
+    previewDiv.innerHTML = "";
+    const imgElement = document.createElement("img");
+
+    imgElement.src = imageDataUrl;
+    imgElement.alt = `Pré-visualização do Certificado de ${
+      certInfo.name || "aluno"
+    }`;
+    imgElement.style.maxWidth = "100%";
+    imgElement.style.height = "auto";
+    imgElement.style.borderRadius = "8px";
+    imgElement.style.border = "1px solid #323238";
+    generatedCertificateUrl = imageDataUrl;
+    generatedCertificateName = studentNameFile;
+
+    previewDiv.appendChild(imgElement);
+  } catch (error) {
+    console.error("Erro ao gerar o certificado:", error);
+    alert("Ocorreu um erro ao tentar gerar o certificado.");
+  } finally {
+    document.body.removeChild(clone);
+    downloadBtn.textContent = "Baixar Certificado";
+    downloadBtn.disabled = false;
+  }
+}
+
+function downloadCertificate() {
+  const link = document.createElement("a");
+  link.href = generatedCertificateUrl;
+  link.download = `Certificado_${generatedCertificateName}.png`;
+  link.click();
 }
 
 function renderTrilhaCompletedView() {
   const tr = getActiveTrilha();
-  $("#main-content").innerHTML = `
-                          <div class="content-card" style="text-align: center;">
-                              <h1 style="color: var(--success-color); font-size: 3rem;">🎉</h1>
-                              <h3>Parabéns!</h3>
-                              <p style="font-size: 1.2rem; margin-top: 1rem;">Você concluiu com sucesso a trilha de <strong>${tr.title}</strong>!</p>
-                              <p style="margin-top: 1rem;">Continue seus estudos explorando outras trilhas no dashboard.</p>
-                          </div>
-                          `;
+  $("#content-header").innerHTML = `<h1>Trilha Concluída!</h1>`;
+  $("#learning-content").innerHTML = `
+        <div style="text-align: center; padding: 2rem 0;">
+            <h1 style="font-size: 4rem;">🎉</h1>
+            <h3>Parabéns!</h3>
+            <p style="font-size: 1.2rem; margin-top: 1rem;">Você concluiu com sucesso a trilha de <strong>${tr.title}</strong>!</p>
+        </div>
+        <div id="study-history-container" class="hidden"></div>
+    `;
+  $("#content-navigation").innerHTML = `
+    <button id="show-certificate-btn" class="option-btn btn-primary-action">
+        Ver Certificado
+    </button>
+    `;
 }
 
-function showLoadingIndicator(isGeneratingTrilha = false) {
-  const message = isGeneratingTrilha
-    ? "Gerando sua nova trilha de estudos..."
-    : "Gerando conteúdo com a IA...";
-  const target =
-    isGeneratingTrilha || !$("#main-content")
-      ? "#trilhas-container-wrapper"
-      : "#main-content";
-  $(
-    target
-  ).innerHTML = `<div id="loading-indicator"><div class="loader"></div><p>${message}</p></div>`;
-  if (isGeneratingTrilha) {
-    $(target).classList.remove("hidden");
-  }
+function showSupportModal() {
+  $("#support-modal").classList.remove("hidden");
 }
 
-function hideLoadingIndicator() {
-  const indicator = $("#loading-indicator");
-  if (indicator && indicator.parentElement.id === "trilhas-container-wrapper") {
-    indicator.parentElement.innerHTML =
-      '<h2>Minhas Trilhas</h2><div id="trilhas-container"></div>';
-  } else if (indicator) {
-    indicator.remove();
-  }
-}
-
-function showErrorMessage(message) {
-  const target =
-    appState.activeTrilhaId === null
-      ? "#trilhas-container-wrapper"
-      : "#main-content";
-  $(
-    target
-  ).innerHTML = `<div class="content-card error-message"><p>${message}</p></div>`;
-}
-
-function showPromptModal(title, requestBody, callback) {
-  onManualResponseSubmit = callback;
-  $("#modal-title").textContent = title;
-  $("#prompt-display").textContent = JSON.stringify(requestBody, null, 2);
-  $("#response-input").value = "";
-  $("#modal-error-message").classList.add("hidden");
-  $("#prompt-modal").classList.remove("hidden");
-}
-
-function hidePromptModal() {
-  $("#prompt-modal").classList.add("hidden");
-  onManualResponseSubmit = null;
-}
-
-function isLastTopicOfTrilha(trilha, mIdx, sIdx) {
-  if (!trilha || !trilha.modules) return false;
-  const isLastModule = mIdx === trilha.modules.length - 1;
-  if (!isLastModule) return false;
-  const isLastSubtopic = sIdx === trilha.modules[mIdx].subtopics.length - 1;
-  return isLastSubtopic;
+function hideSupportModal() {
+  $("#support-modal").classList.add("hidden");
 }
 
 async function createOrSelectTrilha(tema) {
@@ -601,32 +930,27 @@ async function createOrSelectTrilha(tema) {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-  appState.activeTrilhaId = id;
 
-  if (!appState.trilhas[id]) {
-    appState.trilhas[id] = {
-      id,
-      title: tema,
-      completed: false,
-      modules: [],
-    };
+  if (appState.trilhas[id] && appState.trilhas[id].modules?.length > 0) {
+    selectTrilha(id);
+    return;
   }
 
-  const trilha = appState.trilhas[id];
-
-  if (!trilha.modules?.length) {
-    showLoadingIndicator(true);
-    await processRequest("COORDENADOR", {
-      history: [
-        {
-          role: "user",
-          parts: [{ text: `Gere o currículo para o tema: "${tema}"` }],
-        },
-      ],
-      onSuccess: (aiResponse) => {
-        trilha.title = aiResponse.title;
-        trilha.description = aiResponse.description;
-        trilha.modules = aiResponse.modules.map((m) => ({
+  await processRequest("COORDENADOR", {
+    history: [
+      {
+        role: "user",
+        parts: [{ text: `Gere o currículo para o tema: "${tema}"` }],
+      },
+    ],
+    onSuccess: (aiResponse) => {
+      const newTrilha = {
+        id,
+        title: aiResponse.title,
+        description: aiResponse.description,
+        completed: false,
+        lastAccessed: Date.now(),
+        modules: aiResponse.modules.map((m) => ({
           ...m,
           subtopics: m.subtopics.map((sub) => ({
             ...sub,
@@ -634,26 +958,33 @@ async function createOrSelectTrilha(tema) {
             chatHistory: [],
             quiz: null,
           })),
-        }));
-        appState.activeModuleIndex = 0;
-        appState.activeSubtopicIndex = 0;
-        saveState();
-        hideLoadingIndicator();
-        renderDashboard(); // Render dashboard first
-        selectTrilha(id); // Then navigate
-      },
-    });
-  } else {
-    selectTrilha(id);
-  }
+        })),
+      };
+
+      appState.trilhas[id] = newTrilha;
+      appState.activeTrilhaId = id;
+      appState.activeModuleIndex = 0;
+      appState.activeSubtopicIndex = 0;
+
+      saveState();
+      renderDashboard();
+      setTimeout(() => {
+        selectTrilha(id);
+      }, 300);
+    },
+  });
 }
 
 function selectTrilha(id) {
   appState.activeTrilhaId = id;
   const trilha = appState.trilhas[id];
-  let firstUncompletedM = -1;
-  let firstUncompletedS = -1;
 
+  if (trilha) {
+    trilha.lastAccessed = Date.now();
+  }
+
+  let firstUncompletedM = -1,
+    firstUncompletedS = -1;
   if (trilha.modules) {
     for (let m = 0; m < trilha.modules.length; m++) {
       const subtopics = trilha.modules[m].subtopics;
@@ -667,11 +998,9 @@ function selectTrilha(id) {
       if (firstUncompletedM !== -1) break;
     }
   }
-
   appState.activeModuleIndex = firstUncompletedM !== -1 ? firstUncompletedM : 0;
   appState.activeSubtopicIndex =
     firstUncompletedS !== -1 ? firstUncompletedS : 0;
-
   saveState();
   renderLearningScreen();
 }
@@ -681,18 +1010,20 @@ function selectTopic(mIdx, sIdx) {
   appState.activeSubtopicIndex = sIdx;
   saveState();
   renderLearningScreen();
+
+  if (window.innerWidth <= 768) {
+    $("#learning-sidebar").classList.remove("open");
+  }
 }
 
 function goToNextTopic() {
   const tr = getActiveTrilha();
   let { activeModuleIndex: mIdx, activeSubtopicIndex: sIdx } = appState;
-
   sIdx++;
   if (sIdx >= tr.modules[mIdx].subtopics.length) {
     mIdx++;
     sIdx = 0;
   }
-
   if (mIdx < tr.modules.length) {
     selectTopic(mIdx, sIdx);
   }
@@ -701,67 +1032,45 @@ function goToNextTopic() {
 async function startOrContinueTopic() {
   const topic = getActiveTopic();
   if (!topic) return;
-
-  const userMessage =
-    topic.chatHistory.length === 0
-      ? `Vamos começar o tópico: "${topic.title}". Por favor, me dê a introdução.`
-      : `Continuando a aula sobre "${topic.title}". Minha última ação foi: ${
-          topic.chatHistory.slice(-1)[0].parts[0].text
-        }`;
-
-  await continueProfessorInteraction(userMessage, true);
+  const payload = { callNumber: 1 };
+  await continueProfessorInteraction(payload, true);
 }
 
-async function continueProfessorInteraction(
-  userMessage,
-  isStartingTopic = false
-) {
+async function continueProfessorInteraction(payload, isStartingTopic = false) {
   const topic = getActiveTopic();
   if (!topic) return;
 
-  const history = [...topic.chatHistory];
-  if (!isStartingTopic || topic.chatHistory.length === 0) {
-    history.push({ role: "user", parts: [{ text: userMessage }] });
+  const userPayloadForHistory = JSON.stringify(payload);
+  if (!isStartingTopic) {
+    topic.chatHistory.push({
+      role: "user",
+      parts: [{ text: userPayloadForHistory }],
+    });
+  }
+
+  const callNumber =
+    topic.chatHistory.filter((m) => m.role === "model").length + 1;
+
+  const payloadForAI = {
+    subtopicTitle: topic.title,
+    learningObjective: topic.learningObjective,
+    ...payload,
+  };
+  if (!payloadForAI.userQuestion) {
+    payloadForAI.callNumber = callNumber;
   }
 
   await processRequest("PROFESSOR", {
-    history: history,
+    history: [
+      { role: "user", parts: [{ text: JSON.stringify(payloadForAI) }] },
+    ],
     onSuccess: (aiResponse) => {
-      // Normaliza a resposta da IA para garantir consistência nos objetos de opção
-      if (aiResponse.options && Array.isArray(aiResponse.options)) {
-        aiResponse.options.forEach((opt) => {
-          if (opt.label && !opt.text) {
-            opt.text = opt.label;
-            delete opt.label; // Limpa o objeto, deixando apenas a propriedade 'text'
-          }
-        });
-      }
-
-      if (!isStartingTopic || topic.chatHistory.length === 0) {
-        topic.chatHistory.push({
-          role: "user",
-          parts: [{ text: userMessage }],
-        });
-      }
-
       topic.chatHistory.push({
         role: "model",
         parts: [{ text: JSON.stringify(aiResponse) }],
       });
       saveState();
-
-      const modelMessagesCount = topic.chatHistory.filter(
-        (m) => m.role === "model"
-      ).length;
-
-      if (
-        !aiResponse.isTopicEnd &&
-        modelMessagesCount >= INTERACTIONS_BEFORE_QUIZ
-      ) {
-        generateQuiz();
-      } else {
-        renderSceneView(aiResponse);
-      }
+      renderCurrentStateView();
     },
   });
 }
@@ -770,9 +1079,7 @@ function handleUserInteraction(option) {
   if (option.action === "escrever_pergunta") {
     renderFreeFormQuestionView(option);
   } else {
-    // Agora sempre usará 'text' por causa da normalização
-    const userMessage = `Minha escolha foi: "${option.text}" (ação: ${option.action}). Por favor, prossiga com a explicação.`;
-    continueProfessorInteraction(userMessage);
+    continueProfessorInteraction(option);
   }
 }
 
@@ -780,120 +1087,137 @@ async function reviewMistakes(topic) {
   const reviewBtn = $("#review-mistakes-btn");
   if (reviewBtn) {
     reviewBtn.disabled = true;
-    reviewBtn.textContent = "Revisando...";
+    reviewBtn.textContent = "Analisando Erros...";
   }
 
-  const { questions, answers } = topic.quiz;
   const incorrectQuestionsInfo = [];
   const incorrectIndices = [];
 
-  questions.forEach((q, i) => {
-    const isCorrect = answers[i] === q.correctAnswer;
-    if (!isCorrect && answers[i]) {
-      // Only review answered, incorrect questions
+  topic.quiz.questions.forEach((q, i) => {
+    const isCorrect = topic.quiz.answers[i] === q.correctAnswer;
+    if (!isCorrect && topic.quiz.answers[i]) {
       incorrectQuestionsInfo.push({
         question: q.question,
         correctAnswer: q.correctAnswer,
-        studentAnswer: answers[i],
+        studentAnswer: topic.quiz.answers[i],
       });
       incorrectIndices.push(i);
 
-      const explanationContainer = $(`#explanation-${i}`);
-      explanationContainer.innerHTML = `<div style="display: flex; align-items: center; gap: 8px;"><div class="loader" style="width:24px; height:24px; border-width: 3px; margin: 0;"></div> <em style="color: var(--secondary-color);">Tutor IA está analisando sua resposta...</em></div>`;
+      const li = $$(".quiz-question")[i];
+      const explanationDiv = document.createElement("div");
+      explanationDiv.className = "tutor-feedback-loading";
+      explanationDiv.innerHTML = `<p><em>Tutor está analisando esta questão...</em></p>`;
+      li.appendChild(explanationDiv);
     }
   });
 
   if (incorrectQuestionsInfo.length === 0) {
-    if (reviewBtn) reviewBtn.textContent = "Nenhum erro para revisar!";
+    if (reviewBtn) {
+      reviewBtn.textContent = "Nenhum Erro para Revisar!";
+      setTimeout(() => (reviewBtn.disabled = false), 2000);
+    }
     return;
   }
 
-  const context = `O subtópico é "${
-    topic.title
-  }". O aluno errou as seguintes questões: ${JSON.stringify(
-    incorrectQuestionsInfo
-  )}. Por favor, forneça uma explicação para cada erro, na mesma ordem.`;
+  const tutorPayload = {
+    learningObjective: topic.learningObjective,
+    incorrectQuestions: incorrectQuestionsInfo,
+    consolidatedContent: topic.chatHistory
+      .filter((m) => m.role === "model")
+      .map((m) => JSON.parse(m.parts[0].text).narrative)
+      .join("\n\n"),
+  };
 
-  // Chama o processRequest para o TUTOR sem o loader global
-  await processRequest(
-    "TUTOR",
-    {
-      history: [{ role: "user", parts: [{ text: context }] }],
-      onSuccess: (aiResponse) => {
-        if (aiResponse.explanations && Array.isArray(aiResponse.explanations)) {
-          aiResponse.explanations.forEach((explanation, idx) => {
-            const originalQuestionIndex = incorrectIndices[idx];
-            const explanationContainer = $(
-              `#explanation-${originalQuestionIndex}`
-            );
-            if (explanationContainer) {
-              explanationContainer.innerHTML = `<div style="background: #f1f3f5; padding: 12px; border-radius: 8px; border-left: 4px solid var(--primary-color);">${explanation.replace(
-                /\\n|\n/g,
-                "<br>"
-              )}</div>`;
-            }
-          });
-        }
-        if (reviewBtn) reviewBtn.textContent = "Revisão Concluída!";
-      },
+  await processRequest("TUTOR", {
+    history: [
+      { role: "user", parts: [{ text: JSON.stringify(tutorPayload) }] },
+    ],
+    onSuccess: (aiResponse) => {
+      if (aiResponse.explanations && Array.isArray(aiResponse.explanations)) {
+        aiResponse.explanations.forEach((explanation, idx) => {
+          const originalQuestionIndex = incorrectIndices[idx];
+          const li = $$(".quiz-question")[originalQuestionIndex];
+          if (li) {
+            const loadingDiv = li.querySelector(".tutor-feedback-loading");
+            if (loadingDiv) loadingDiv.remove();
+
+            const feedbackDiv = document.createElement("div");
+            feedbackDiv.className = "tutor-feedback";
+            feedbackDiv.innerHTML = formatNarrative(explanation);
+            li.appendChild(feedbackDiv);
+          }
+        });
+      }
+      if (reviewBtn) {
+        reviewBtn.textContent = "Revisão Concluída!";
+        reviewBtn.disabled = false;
+      }
     },
-    { showGlobalLoader: false }
-  );
+  });
 }
 
 async function generateQuiz() {
   const topic = getActiveTopic();
   if (!topic || topic.quiz) return;
-  const context = `Subtópico: "${
-    topic.title
-  }". Histórico da conversa: ${JSON.stringify(topic.chatHistory)}`;
+  const consolidatedContent = topic.chatHistory
+    .filter((m) => m.role === "model")
+    .map((m) => JSON.parse(m.parts[0].text).narrative)
+    .join("\n\n---\n\n");
+  const avaliadorPayload = {
+    learningObjective: topic.learningObjective,
+    consolidatedContent,
+  };
   await processRequest("AVALIADOR", {
-    history: [{ role: "user", parts: [{ text: context }] }],
+    history: [
+      { role: "user", parts: [{ text: JSON.stringify(avaliadorPayload) }] },
+    ],
     onSuccess: (aiResponse) => {
-      topic.quiz = {
-        questions: aiResponse,
-        answers: [],
-        score: undefined,
-      };
+      topic.quiz = { questions: aiResponse, answers: [], score: undefined };
       saveState();
       renderLearningScreen();
     },
   });
 }
-
-function handleQuizSubmit() {
+async function handleDeleteTrilha(trilhaId) {
+  const trilha = appState.trilhas[trilhaId];
+  if (!trilha) return;
+  const isConfirmed = await showConfirmationModal(
+    "Apagar Trilha",
+    `Tem certeza que quer apagar a trilha "<strong>${trilha.title}</strong>"?`,
+    { confirmText: "Apagar", isDestructive: true }
+  );
+  if (isConfirmed) {
+    delete appState.trilhas[trilhaId];
+    saveState();
+    renderDashboard();
+  }
+}
+async function handleQuizSubmit() {
   const topic = getActiveTopic();
   const tr = getActiveTrilha();
   const form = $("#quiz-form");
   const userAnswers = [];
-  let score = 0;
-  let allAnswered = true;
-
+  let score = 0,
+    allAnswered = true;
   const formData = new FormData(form);
   topic.quiz.questions.forEach((q, qIdx) => {
     const userAnswer = formData.get(`q${qIdx}`);
-    if (userAnswer === null) {
-      allAnswered = false;
-    }
+    if (userAnswer === null) allAnswered = false;
     userAnswers.push(userAnswer);
   });
-
   if (!allAnswered) {
-    alert(
-      "Por favor, responda a todas as questões antes de enviar a avaliação."
+    await showConfirmationModal(
+      "Atenção",
+      "Por favor, responda a todas as questões.",
+      { showCancel: false, confirmText: "OK" }
     );
     return;
   }
-
   topic.quiz.questions.forEach((q, qIdx) => {
-    if (userAnswers[qIdx] === q.correctAnswer) {
-      score++;
-    }
+    if (userAnswers[qIdx] === q.correctAnswer) score++;
   });
-
   topic.quiz.answers = userAnswers;
   topic.quiz.score = (score / topic.quiz.questions.length) * 100;
-
   if (topic.quiz.score >= 70) {
     topic.completed = true;
     if (
@@ -906,42 +1230,247 @@ function handleQuizSubmit() {
       tr.completed = true;
     }
   }
-
   saveState();
   renderLearningScreen();
 }
 
-function setupEventListeners() {
-  $("#api-mode-toggle").addEventListener("change", (e) => {
-    if (e.target.checked && !GEMINI_API_KEY) {
-      alert(
-        "A chave da API não está disponível ou falhou ao carregar. Modo API desativado."
-      );
-      e.target.checked = false;
-      appState.useApiMode = false;
-    } else {
-      appState.useApiMode = e.target.checked;
+function isLastTopicOfTrilha(trilha, mIdx, sIdx) {
+  if (!trilha || !trilha.modules) return false;
+  const isLastModule = mIdx === trilha.modules.length - 1;
+  if (!isLastModule) return false;
+  return sIdx === trilha.modules[mIdx].subtopics.length - 1;
+}
+
+function showPromptModal(title, requestBody, callback) {
+  onManualResponseSubmit = callback;
+  $("#modal-title").textContent = title;
+  $("#prompt-display").textContent = JSON.stringify(requestBody, null, 2);
+  $("#response-input").value = "";
+  $("#modal-error-message").classList.add("hidden");
+  $("#prompt-modal").classList.remove("hidden");
+
+  const assistant = localStorage.getItem(ASSISTANT_ENABLED_KEY);
+  const isAssistantEnabled = assistant ?? "true";
+  if (window.innerWidth > 768 && isAssistantEnabled) {
+    $("#prompt-modal").classList.remove("hidden");
+    $("#chatbot-container").classList.remove("hidden");
+  }
+}
+
+function hidePromptModal() {
+  $("#prompt-modal").classList.add("hidden");
+  if (onManualResponseSubmit) {
+    const topic = getActiveTopic();
+    if (topic && topic.chatHistory.length > 0) {
+      const lastMessage = topic.chatHistory[topic.chatHistory.length - 1];
+      if (lastMessage.role === "user") {
+        topic.chatHistory.pop();
+        saveState();
+      }
     }
-    saveState();
+  }
+  onManualResponseSubmit = null;
+}
+
+function showLoadingModal(title) {
+  const modal = $("#loading-modal");
+  modal.innerHTML = `<div class="modal-content" style="background: hsl(var(--card)); padding: 2rem; border-radius: var(--radius); text-align: center;"><h2 id="loading-title">${
+    title || "Processando..."
+  }</h2><div class="spinner"></div><p>Aguarde, a IA está trabalhando...</p></div>`;
+  modal.classList.remove("hidden");
+}
+
+function hideLoadingModal() {
+  $("#loading-modal").classList.add("hidden");
+}
+
+function showConfirmationModal(title, message, options = {}) {
+  return new Promise((resolve) => {
+    const modal = $("#confirmation-modal");
+    $("#confirmation-title").textContent = title;
+    $("#confirmation-message").innerHTML = message;
+    const actionsContainer = $("#confirmation-actions");
+    actionsContainer.innerHTML = "";
+    const confirmText = options.confirmText || "Confirmar";
+    const cancelText = options.cancelText || "Cancelar";
+    const showCancel = options.showCancel !== false;
+    const closeModal = (result) => {
+      modal.classList.add("hidden");
+      actionsContainer.innerHTML = "";
+      resolve(result);
+    };
+    if (showCancel) {
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "confirmation-btn btn-cancel";
+      cancelBtn.textContent = cancelText;
+      cancelBtn.onclick = () => closeModal(false);
+      actionsContainer.appendChild(cancelBtn);
+    }
+    const confirmBtn = document.createElement("button");
+    confirmBtn.className = options.isDestructive
+      ? "confirmation-btn btn-confirm"
+      : "modal-btn";
+    if (!options.isDestructive) {
+      confirmBtn.style.backgroundColor = "hsl(var(--primary))";
+      confirmBtn.style.color = "white";
+    }
+    confirmBtn.textContent = confirmText;
+    confirmBtn.onclick = () => closeModal(true);
+    actionsContainer.appendChild(confirmBtn);
+    modal.querySelector(".modal-close-btn").onclick = () => closeModal(false);
+    modal.classList.remove("hidden");
   });
+}
+
+function setupEventListeners() {
+  $("#tutorial-next-btn").addEventListener("click", () => {
+    if (currentTutorialStep < tutorialSteps.length - 1) {
+      currentTutorialStep++;
+      renderTutorialStep(currentTutorialStep);
+    }
+  });
+
+  $("#tutorial-prev-btn").addEventListener("click", () => {
+    if (currentTutorialStep > 0) {
+      currentTutorialStep--;
+      renderTutorialStep(currentTutorialStep);
+    }
+  });
+
+  $("#tutorial-skip-btn").addEventListener("click", closeTutorial);
+  $("#tutorial-finish-btn").addEventListener("click", closeTutorial);
+
+  $("#settings-btn").addEventListener("click", () =>
+    $("#settings-modal").classList.remove("hidden")
+  );
+  $("#settings-close-btn").addEventListener("click", () =>
+    $("#settings-modal").classList.add("hidden")
+  );
+  $("#settings-overlay").addEventListener("click", () =>
+    $("#settings-modal").classList.add("hidden")
+  );
+
+  $("#theme-switch").addEventListener("change", (e) => {
+    const newTheme = e.target.checked ? "dark" : "light";
+    localStorage.setItem(THEME_KEY, newTheme);
+    applyTheme(newTheme);
+  });
+
+  $("#change-name-btn").addEventListener("click", () => {
+    const certInfo = JSON.parse(localStorage.getItem(CERTIFICATE_KEY));
+    if (certInfo && certInfo.name) {
+      $("#student-name").value = certInfo.name;
+    } else {
+      $("#student-name").value = "";
+    }
+    $("#settings-modal").classList.add("hidden");
+    $("#certificate-modal").classList.remove("hidden");
+  });
+
+  $("#certificate-close-btn").addEventListener("click", () => {
+    $("#certificate-modal").classList.add("hidden");
+  });
+
+  const syncApiToggles = (source) => {
+    const isChecked = source.checked;
+    localStorage.setItem(API_MODE_KEY, isChecked);
+    $("#api-mode-toggle").checked = isChecked;
+    $("#api-mode-switch-settings").checked = isChecked;
+    document.dispatchEvent(new Event("apiModeChange"));
+  };
+
+  $("#api-mode-toggle").addEventListener("change", (e) =>
+    syncApiToggles(e.target)
+  );
+  $("#api-mode-switch-settings").addEventListener("change", (e) =>
+    syncApiToggles(e.target)
+  );
+
+  document.addEventListener("apiModeChange", () => {
+    const isApiMode = localStorage.getItem(API_MODE_KEY) === "true";
+    const labels = document.querySelectorAll(".mode-label");
+    labels.forEach((label, index) => {
+      label.classList.toggle(
+        "active",
+        (isApiMode && index === 1) || (!isApiMode && index === 0)
+      );
+    });
+  });
+
+  $("#assistant-switch").addEventListener("change", (e) => {
+    localStorage.setItem(ASSISTANT_ENABLED_KEY, e.target.checked);
+  });
+
+  const chatbotToggleBtn = $("#chatbot-toggle-btn");
+  const chatbotContainer = $("#chatbot-container");
+  const chatbotCloseBtn = $("#chatbot-close-btn");
+
+  if (chatbotToggleBtn && chatbotContainer && chatbotCloseBtn) {
+    chatbotToggleBtn.addEventListener("click", () => {
+      chatbotContainer.classList.toggle("hidden");
+    });
+    chatbotCloseBtn.addEventListener("click", () => {
+      chatbotContainer.classList.add("hidden");
+    });
+  }
 
   $("#trilha-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    const temaInput = $("#tema-input");
-    const tema = temaInput.value.trim();
+    const tema = $("#tema-input").value.trim();
     if (tema) {
       createOrSelectTrilha(tema);
-      temaInput.value = "";
+      $("#tema-input").value = "";
+    }
+  });
+
+  document.body.addEventListener("click", async (e) => {
+    if (e.target.id === "show-certificate-btn") {
+      showCertificatePreview();
+      handleDownloadCertificate();
+    }
+
+    const deleteBtn = e.target.closest(".delete-trilha-btn");
+    if (deleteBtn) {
+      e.stopPropagation();
+      await handleDeleteTrilha(deleteBtn.dataset.trilhaId);
+      return;
+    }
+  });
+
+  $("#trilhas-container").addEventListener("click", (e) => {
+    const card = e.target.closest(".trilha-card");
+    if (e.target.closest(".delete-trilha-btn")) return;
+    if (card?.dataset.trilhaId) {
+      selectTrilha(card.dataset.trilhaId);
+    }
+  });
+
+  $("#clear-storage-btn").addEventListener("click", async () => {
+    const isConfirmed = await showConfirmationModal(
+      "Apagar Tudo",
+      "Certeza que quer apagar <strong>TODAS</strong> as trilhas? A ação não pode ser desfeita.",
+      { confirmText: "Apagar Tudo", isDestructive: true }
+    );
+    if (isConfirmed) {
+      localStorage.clear();
+      location.reload();
     }
   });
 
   $("#back-to-dashboard").onclick = () => {
     appState.activeTrilhaId = null;
-    appState.activeModuleIndex = -1;
-    appState.activeSubtopicIndex = -1;
     saveState();
     renderDashboard();
   };
+
+  $("#certificate-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("#student-name").value.trim();
+    if (name) {
+      localStorage.setItem(CERTIFICATE_KEY, JSON.stringify({ name }));
+      $("#certificate-modal").classList.add("hidden");
+    }
+  });
 
   $("#copy-prompt-btn").onclick = () => {
     navigator.clipboard.writeText($("#prompt-display").textContent);
@@ -952,12 +1481,17 @@ function setupEventListeners() {
     );
   };
 
+  $("#download-certificate-btn").onclick = downloadCertificate;
+  $("#certificate-preview-modal .modal-close-btn").onclick = () => {
+    $("#certificate-preview-modal").classList.add("hidden");
+  };
+
   $("#submit-response-btn").onclick = () => {
     const raw = $("#response-input").value.trim();
-    const errorEl = $("#modal-error-message");
+    const errEl = $("#modal-error-message");
     if (!raw) {
-      errorEl.textContent = "A área de resposta está vazia.";
-      errorEl.classList.remove("hidden");
+      errEl.textContent = "Resposta vazia.";
+      errEl.classList.remove("hidden");
       return;
     }
     let jsonText = raw.startsWith("```json")
@@ -966,38 +1500,46 @@ function setupEventListeners() {
       ? raw.slice(3, -3)
       : raw;
     try {
-      const aiJson = JSON.parse(jsonText.trim());
-      if (onManualResponseSubmit) {
-        onManualResponseSubmit(aiJson);
-      }
+      const json = JSON.parse(jsonText.trim());
+      if (onManualResponseSubmit) onManualResponseSubmit(json);
       hidePromptModal();
     } catch (err) {
-      console.error(err);
-      errorEl.textContent = `Erro: Resposta inválida ou não é um JSON válido. (${err.message})`;
-      errorEl.classList.remove("hidden");
+      errEl.textContent = `Erro no JSON. (${err.message})`;
+      errEl.classList.remove("hidden");
     }
   };
 
-  $(".modal-close-btn").onclick = hidePromptModal;
-  $("#prompt-modal").addEventListener("click", (e) => {
-    if (e.target === $("#prompt-modal")) {
-      hidePromptModal();
-    }
+  $("#prompt-modal .modal-close-btn").onclick = hidePromptModal;
+  $("#support-modal .modal-close-btn").onclick = hideSupportModal;
+
+  const sidebar = $("#learning-sidebar");
+  const openBtn = $("#mobile-sidebar-toggle");
+  const closeBtn = $("#close-sidebar");
+
+  const closeMobileSidebar = () => {
+    sidebar.classList.remove("open");
+  };
+
+  openBtn.addEventListener("click", () => {
+    sidebar.classList.add("open");
   });
+  closeBtn.addEventListener("click", closeMobileSidebar);
+}
+function checkCertificateInfo() {
+  const certInfo = localStorage.getItem(CERTIFICATE_KEY);
+  if (!certInfo) {
+    $("#certificate-modal").classList.remove("hidden");
+  }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
+  initializeSettings();
   loadState();
-  await loadApiKeys();
   setupEventListeners();
-
-  $("#api-mode-toggle").checked = appState.useApiMode;
-
-  if (appState.activeTrilhaId !== null) {
-    renderLearningScreen();
-  } else {
-    renderDashboard();
+  checkCertificateInfo();
+  appState.activeTrilhaId = null;
+  renderDashboard();
+  if (!localStorage.getItem(TUTORIAL_KEY)) {
+    setTimeout(showTutorial, 500);
   }
 });
-
-
