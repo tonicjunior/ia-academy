@@ -1766,3 +1766,38 @@ input:checked + .slider:before {
   background-color: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
 }
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.zoom-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-size: 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: var(--transition-smooth);
+}
+
+.zoom-btn:hover {
+  background-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+#zoom-level-display {
+  font-weight: 500;
+  color: hsl(var(--card-foreground));
+  min-width: 50px;
+  text-align: center;
+}

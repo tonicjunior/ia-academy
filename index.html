@@ -64,6 +64,14 @@
             </label>
           </div>
           <div class="setting-item">
+            <label>Zoom da Tela</label>
+            <div class="zoom-controls">
+              <button id="zoom-out-btn" class="zoom-btn">-</button>
+              <span id="zoom-level-display">100%</span>
+              <button id="zoom-in-btn" class="zoom-btn">+</button>
+            </div>
+          </div>
+          <div class="setting-item">
             <label for="assistant-switch"
               >Habilitar Assistente IA Externo</label
             >
@@ -492,13 +500,8 @@
         <h2 id="tutorial-title">Bem-vindo(a) ao IA.Academy!</h2>
         <div id="tutorial-step-content"></div>
         <div id="tutorial-progress"></div>
-        <div
-          id="tutorial-actions"
-          class="modal-actions"
-        >
-          <button id="tutorial-prev-btn" class="modal-btn">
-            Anterior
-          </button>
+        <div id="tutorial-actions" class="modal-actions">
+          <button id="tutorial-prev-btn" class="modal-btn">Anterior</button>
           <div>
             <button id="tutorial-next-btn" class="modal-btn">Próximo</button>
             <button id="tutorial-finish-btn" class="modal-btn hidden">

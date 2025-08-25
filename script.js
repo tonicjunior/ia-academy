@@ -11,6 +11,8 @@ let onManualResponseSubmit = null;
 const THEME_KEY = "iaAcademy_theme_setting";
 let generatedCertificateUrl = null;
 let generatedCertificateName = null;
+const ZOOM_KEY = "iaAcademy_zoom_level"; // Nova constante
+let currentZoomLevel = 1; // Nova variável
 
 const API_MODE_KEY = "iaAcademy_api_mode";
 const ASSISTANT_ENABLED_KEY = "iaAcademy_assistant_enabled";
@@ -60,6 +62,22 @@ let currentTutorialStep = 0;
 function showTutorial() {
   $("#tutorial-modal").classList.remove("hidden");
   renderTutorialStep(currentTutorialStep);
+}
+
+function applyZoom() {
+  document.body.style.zoom = currentZoomLevel;
+  $("#zoom-level-display").textContent = `${Math.round(
+    currentZoomLevel * 100
+  )}%`;
+  localStorage.setItem(ZOOM_KEY, currentZoomLevel);
+}
+
+function initializeZoom() {
+  const savedZoom = localStorage.getItem(ZOOM_KEY);
+  if (savedZoom) {
+    currentZoomLevel = parseFloat(savedZoom);
+  }
+  applyZoom();
 }
 
 function renderTutorialStep(stepIndex) {
@@ -697,7 +715,7 @@ function renderQuizView(topic) {
 
     container.innerHTML = `<p>Ocorreu um erro ao processar as questões da avaliação. Solicitando uma nova versão para a IA...</p>`;
     navContainer.innerHTML = "";
-
+    generateQuiz();
     setTimeout(() => {
       generateQuiz();
     }, 500);
@@ -1328,6 +1346,10 @@ function showConfirmationModal(title, message, options = {}) {
 }
 
 function setupEventListeners() {
+  $("#assistant-switch").addEventListener("change", (e) => {
+    localStorage.setItem(ASSISTANT_ENABLED_KEY, e.target.checked);
+  });
+
   $("#tutorial-next-btn").addEventListener("click", () => {
     if (currentTutorialStep < tutorialSteps.length - 1) {
       currentTutorialStep++;
@@ -1405,16 +1427,35 @@ function setupEventListeners() {
     localStorage.setItem(ASSISTANT_ENABLED_KEY, e.target.checked);
   });
 
+  $("#assistant-switch").addEventListener("change", (e) => {
+    localStorage.setItem(ASSISTANT_ENABLED_KEY, e.target.checked);
+  });
+
+  $("#zoom-in-btn").addEventListener("click", () => {
+    currentZoomLevel = Math.min(1.5, currentZoomLevel + 0.1);
+    applyZoom();
+  });
+
+  $("#zoom-out-btn").addEventListener("click", () => {
+    currentZoomLevel = Math.max(0.8, currentZoomLevel - 0.1);
+    applyZoom();
+  });
   const chatbotToggleBtn = $("#chatbot-toggle-btn");
   const chatbotContainer = $("#chatbot-container");
   const chatbotCloseBtn = $("#chatbot-close-btn");
 
   if (chatbotToggleBtn && chatbotContainer && chatbotCloseBtn) {
     chatbotToggleBtn.addEventListener("click", () => {
-      chatbotContainer.classList.toggle("hidden");
+      chatbotContainer.classList.remove("hidden");
+      if (window.innerWidth <= 768) {
+        chatbotToggleBtn.classList.add("hidden");
+      }
     });
     chatbotCloseBtn.addEventListener("click", () => {
       chatbotContainer.classList.add("hidden");
+      if (window.innerWidth <= 768) {
+        chatbotToggleBtn.classList.remove("hidden");
+      }
     });
   }
 
@@ -1540,6 +1581,7 @@ function checkCertificateInfo() {
 document.addEventListener("DOMContentLoaded", () => {
   initializeSettings();
   loadState();
+  initializeZoom();
   setupEventListeners();
   appState.activeTrilhaId = null;
   renderDashboard();
