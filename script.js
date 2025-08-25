@@ -1437,7 +1437,7 @@ function setupEventListeners() {
   });
 
   $("#zoom-out-btn").addEventListener("click", () => {
-    currentZoomLevel = Math.max(0.8, currentZoomLevel - 0.1);
+    currentZoomLevel = Math.max(0.5, currentZoomLevel - 0.1);
     applyZoom();
   });
   const chatbotToggleBtn = $("#chatbot-toggle-btn");
