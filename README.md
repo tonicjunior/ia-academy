@@ -75,7 +75,6 @@ A plataforma conduz o usuário por módulos e subtópicos com aulas interativas,
 
 - Navegador web atualizado
 - **Visual Studio Code** com extensão *Live Server* (recomendado)
-- Chave de API do **Google Gemini** (opcional)
 
 ### Passos
 
