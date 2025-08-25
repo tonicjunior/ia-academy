@@ -6,7 +6,7 @@
 
 > **IA Dev Academy** é uma plataforma web inovadora que gera trilhas de estudo personalizadas sobre qualquer tema de tecnologia utilizando **Google Gemini AI**.
 
-A plataforma guia o usuário através de módulos e subtópicos com aulas interativas, avaliações, feedback detalhado e certificados de conclusão — **tudo gerado dinamicamente**.
+A plataforma guia o usuário através de módulos e subtópicos com aulas interativas, avaliações, feedback detalhado e certificados de conclusão **tudo gerado dinamicamente**.
 
 ---
 
@@ -65,7 +65,7 @@ A plataforma guia o usuário através de módulos e subtópicos com aulas intera
 ## 🚀 Tecnologias Utilizadas
 
 - **Frontend:** HTML5, CSS3, JavaScript (Vanilla JS)
-- **API de IA:** Google Gemini 1.5 Flash
+- **API de IA:** webhook n8n
 - **Certificados:** `html2canvas` para exportar em PNG
 - **Armazenamento:** `localStorage`
 - **Backend:** `n8n.cloud` como intermediário para proteger a chave do Gemini
