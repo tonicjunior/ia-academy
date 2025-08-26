@@ -1446,7 +1446,12 @@ function setupEventListeners() {
 
   if (chatbotToggleBtn && chatbotContainer && chatbotCloseBtn) {
     chatbotToggleBtn.addEventListener("click", () => {
-      chatbotContainer.classList.remove("hidden");
+      if (chatbotContainer.classList.contains("hidden")) {
+        chatbotContainer.classList.remove("hidden");
+      } else {
+        chatbotContainer.classList.add("hidden");
+      }
+
       if (window.innerWidth <= 768) {
         chatbotToggleBtn.classList.add("hidden");
       }
