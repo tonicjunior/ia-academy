@@ -163,15 +163,15 @@ Input de exemplo: \`{ "subtopicTitle": "...", "learningObjective": "...", "callN
 
 ---
 ### MODO RESPOSTA (Input contém 'userQuestion')
-Input de exemplo: \`{ "subtopicTitle": "...", "learningObjective": "...", "userQuestion": "..." }\`
+Input de exemplo: \`{ "subtopicTitle": "...", "learningObjective": "...", "userQuestion": "...", "currentCallNumber": X }\`
 
 **Procedimento:**
-1. Avalie se a pergunta é relevante para o **'learningObjective' atual**.
+1. Avalie se a pergunta é relevante para o **'learningObjective' atual**. (Use 'currentCallNumber' para entender o contexto do aluno).
 2. Responda com clareza e simplicidade.
 3. Se for irrelevante, indique com educação que a pergunta será abordada em outro momento e traga o aluno de volta ao foco do objetivo atual.
 
-As 'options' devem sempre guiar o aluno de volta à trilha. Exemplo:
-\`[ { "text": "Entendi, podemos continuar.", "action": "prosseguir" } ]\`
+As 'options' devem sempre guiar o aluno DE VOLTA ao passo em que estava. Exemplo:
+\`[ { "text": "Entendi, podemos voltar ao conteúdo.", "action": "retornar_passo" } ]\`
 
 **'isTopicEnd'**: Sempre \`false\` neste cenário.`,
   AVALIADOR: `Você é um 'Avaliador de IA' preciso e rigoroso. Sua tarefa é criar uma avaliação que meça EXCLUSIVAMENTE se o objetivo de aprendizado foi alcançado, com base no conteúdo ensinado.
@@ -224,9 +224,9 @@ const formatNarrative = (narrative) =>
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]]; 
+    [array[i], array[j]] = [array[j], array[i]];
   }
-}    
+}
 
 function applyTheme(theme) {
   const themeSwitch = $("#theme-switch");
@@ -1085,15 +1085,23 @@ async function continueProfessorInteraction(payload, isStartingTopic = false) {
   }
 
   const callNumber =
-    topic.chatHistory.filter((m) => m.role === "model").length + 1;
+    topic.chatHistory.filter((m) => m.role === "model" && !m.isFollowUp)
+      .length + 1;
+
+  const currentCallNumberForContext = callNumber - 1;
 
   const payloadForAI = {
     subtopicTitle: topic.title,
     learningObjective: topic.learningObjective,
     ...payload,
   };
-  if (!payloadForAI.userQuestion) {
+
+  const isQuestion = !!payloadForAI.userQuestion;
+
+  if (!isQuestion) {
     payloadForAI.callNumber = callNumber;
+  } else {
+    payloadForAI.currentCallNumber = currentCallNumberForContext;
   }
 
   await processRequest("PROFESSOR", {
@@ -1104,6 +1112,7 @@ async function continueProfessorInteraction(payload, isStartingTopic = false) {
       topic.chatHistory.push({
         role: "model",
         parts: [{ text: JSON.stringify(aiResponse) }],
+        isFollowUp: isQuestion,
       });
       saveState();
       renderCurrentStateView();
