@@ -187,7 +187,13 @@ REGRAS OBRIGATÓRIAS:
      "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
      "correctAnswer": "Opção C"
    }
-6. **Qualidade dos Distratores**: Crie alternativas incorretas ('distratores') que sejam plausíveis, mas comprovadamente erradas segundo o 'consolidatedContent'. Evite opções absurdas.`,
+6. **Qualidade dos Distratores (CRÍTICO!)**: Crie alternativas incorretas ('distratores') que sejam **altamente plausíveis**. Eles devem ser "quase certos", usando termos do próprio \`consolidatedContent\` 
+mas de forma incorreta, ou aplicando um conceito no contexto errado (ex: trocar a *causa* pelo *efeito*). O erro deve ser sutil, forçando o aluno a pensar criticamente sobre o \`learningObjective\`.
+Evite opções absurdas ou obviamente falsas.
+7. **Tipos de Pergunta**: Varie o formato das perguntas para aumentar a dificuldade cognitiva. Não se limite a simples recall ('O que é X?'). Crie perguntas que exijam:
+    * **Compreensão/Diferenciação**: 'Qual a *principal diferença* entre [Conceito A] e [Conceito B]?'
+    * **Aplicação (Baseada nos exemplos)**: 'Baseado no exemplo da aula, em qual cenário [Técnica Y] seria aplicada?'
+    * **Análise Causal**: 'Segundo o conteúdo, por que [Fator X] leva a [Resultado Z]?'`,
   TUTOR: `Você é um 'Tutor de IA' paciente e eficaz. O aluno cometeu erros no quiz. Sua missão é fornecer um feedback claro e construtivo para cada erro, reforçando o aprendizado.
 
 REGRAS OBRIGATÓRIAS:
@@ -214,6 +220,13 @@ const formatNarrative = (narrative) =>
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.*?)\*/g, "<em>$1</em>")
     .replace(/\\n|\n/g, "<br>");
+
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]]; 
+  }
+}    
 
 function applyTheme(theme) {
   const themeSwitch = $("#theme-switch");
@@ -823,8 +836,8 @@ function renderQuizResultView(topic) {
   reviewMistakesBtn.onclick = () => reviewMistakes(topic);
 
   navContainerReview.prepend(reviewContentBtn);
-  if (score < 70) {
-    navContainer.prepend(reviewMistakesBtn);
+  if (score < 99) {
+    navContainerReview.appendChild(reviewMistakesBtn);
   }
 
   $("#quiz-form").appendChild(resultDiv);
@@ -1195,12 +1208,20 @@ async function generateQuiz() {
       { role: "user", parts: [{ text: JSON.stringify(avaliadorPayload) }] },
     ],
     onSuccess: (aiResponse) => {
+      if (Array.isArray(aiResponse)) {
+        aiResponse.forEach((question) => {
+          if (question && Array.isArray(question.options)) {
+            shuffleArray(question.options);
+          }
+        });
+      }
       topic.quiz = { questions: aiResponse, answers: [], score: undefined };
       saveState();
       renderLearningScreen();
     },
   });
 }
+
 async function handleDeleteTrilha(trilhaId) {
   const trilha = appState.trilhas[trilhaId];
   if (!trilha) return;

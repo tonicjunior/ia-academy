@@ -1,121 +1,144 @@
-# IA Dev Academy
+# 🎓 IA.Academy
 
-![Status](https://img.shields.io/badge/status-active-brightgreen)
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Tech](https://img.shields.io/badge/tech-JavaScript%20%7C%20HTML5%20%7C%20CSS3-yellow)
-
-> **IA Dev Academy** é uma plataforma web que cria trilhas de estudo personalizadas sobre temas de tecnologia utilizando **IA**.
-
-A plataforma conduz o usuário por módulos e subtópicos com aulas interativas, avaliações, feedback detalhado e certificados de conclusão tudo gerado dinamicamente.
+> Um sistema de aprendizado dinâmico e totalmente front-end que transforma qualquer tema em uma trilha de estudos interativa — gerada por Inteligência Artificial.
 
 ---
 
-## 📚 Sumário
+## 🧠 Visão Geral
 
-- [✨ Funcionalidades Principais](#-funcionalidades-principais)
-- [🚀 Tecnologias Utilizadas](#-tecnologias-utilizadas)
-- [⚙️ Como Funciona o Fluxo de IAs](#️-como-funciona-o-fluxo-de-ias)
-- [🛠️ Configuração e Instalação Local](#️-configuração-e-instalação-local)
-- [👨‍💻 Como Usar](#-como-usar)
-- [📄 Licença](#-licença)
+O **IA.Academy** é uma **Single Page Application (SPA)** que atua como um orquestrador de **Atores de IA** — agentes especializados que colaboram para gerar uma experiência educacional completa a partir de um único tema.  
 
----
+Por exemplo, ao inserir o tema **"JavaScript para iniciantes"**, o sistema cria automaticamente:
 
-## ✨ Funcionalidades Principais
-
-- **Geração de Currículo Personalizado**  
-  Digite um tema e a IA _Coordenador_ cria um plano de estudos estruturado.
-
-- **Aulas Interativas**  
-  Cada subtópico é ensinado por uma IA _Professor_, com explicações dinâmicas e interações.
-
-- **Avaliações Inteligentes**  
-  Ao final de cada tópico, a IA _Avaliador_ gera quizzes de múltipla escolha.
-
-- **Feedback Detalhado**  
-  Em caso de erro, a IA _Tutor_ explica de forma clara os conceitos e aponta melhorias.
-
-- **Certificado de Conclusão**  
-  Gere e baixe um certificado personalizado ao finalizar sua trilha.
-
-- **Assistente IA Integrado**  
-  Um botão flutuante abre um assistente via [chat.deepseek.com](https://chat.deepseek.com).
-
-- **Modos Flexíveis (API e Manual)**  
-  - **API:** conteúdo gerado automaticamente via n8n
-  - **Manual:** prompts inseridos manualmente
-
-- **Progresso Salvo Localmente**  
-  Utiliza `localStorage` para armazenar seu progresso.
+- Um **currículo completo** (módulos e subtópicos);
+- **Aulas interativas** divididas por etapas;
+- **Avaliações inteligentes**;
+- E **feedbacks personalizados** com base no desempenho do aluno.
 
 ---
 
-## 🚀 Tecnologias Utilizadas
+## ⚙️ Como Funciona — A Orquestra de IAs
 
-- **Frontend:** HTML5, CSS3, JavaScript (Vanilla)
-- **API de IA:** webhook n8n
-- **Certificados:** `html2canvas` (exportação em PNG)
-- **Armazenamento:** `localStorage`
-- **Backend:** n8n.cloud (proteção da chave do Gemini, DEEPSEAK, OPENAI etc)
+O sistema é composto por quatro Atores principais, cada um com uma função específica dentro da jornada de aprendizado:
 
----
-
-## ⚙️ Como Funciona o Fluxo de IAs
-
-- **Coordenador IA:** Recebe o tema e gera um currículo estruturado em JSON.
-- **Professor IA:** Cria o conteúdo de cada subtópico.
-- **Avaliador IA:** Gera quizzes de 8 perguntas por módulo.
-- **Tutor IA:** Fornece explicações detalhadas para respostas incorretas.
+### 🎯 1. Coordenador (COORDENADOR)
+- **Entrada:** Um tema (ex: `"História da Arte Renascentista"`)
+- **Saída:** Um **plano de estudos JSON** com 3–5 módulos e 4–6 subtópicos por módulo.  
+  Cada subtópico contém um `learningObjective` (objetivo de aprendizado) mensurável e atômico.
 
 ---
 
-## 🛠️ Configuração e Instalação Local
+### 👨‍🏫 2. Professor (PROFESSOR)
+- **Entrada:** Um `learningObjective` (ex: `"Explicar a técnica do sfumato usada por Da Vinci"`)
+- **Saída:** A aula dividida em 3 etapas:
+  1. **Fundamento:** Explicação do conceito central.  
+  2. **Aplicação:** Exemplo prático contextualizado.  
+  3. **Síntese:** Conclusão com reforço de aprendizado.  
 
-### Pré-requisitos
+O Professor também responde perguntas do aluno (`userQuestion`) relacionadas ao tópico atual.
 
-- Navegador web atualizado
-- **Visual Studio Code** com extensão *Live Server* (recomendado)
+---
 
-### Passos
+### 🧩 3. Avaliador (AVALIADOR)
+- **Entrada:** O `learningObjective` e o conteúdo ensinado (`consolidatedContent`).
+- **Saída:** Um array JSON com **8 perguntas de múltipla escolha**, contendo:
+  - Distratores “quase certos”;
+  - Tipos de questões variados (compreensão, aplicação, análise causal);
+  - Baseadas **exclusivamente** no conteúdo ensinado.
+
+---
+
+### 🧙 4. Tutor (TUTOR)
+- **Entrada:** Perguntas erradas, respostas do aluno e o `learningObjective`.
+- **Saída:** Uma explicação detalhada e encorajadora:
+  - Por que a resposta correta está certa;
+  - Por que a resposta do aluno estava errada.
+
+---
+
+## 🚀 Principais Funcionalidades
+
+- **🎓 Geração Dinâmica de Cursos:** Crie trilhas completas a partir de qualquer tema.
+- **🔁 Dois Modos de Operação:**
+  - **Modo API:** Conecta-se a um endpoint backend (webhook n8n) e processa tudo automaticamente.
+  - **Modo Manual:** Exibe o prompt ao usuário, permitindo usar a IA de sua preferência e colar o resultado JSON de volta.
+- **💬 Aulas Interativas:** Estrutura de aprendizado em etapas, com respostas dinâmicas.
+- **🧠 Avaliações Inteligentes:** Quizzes automáticos com pontuação e feedback tutorado.
+- **🔀 Embaralhamento de Respostas:** Ordem aleatória a cada tentativa (`shuffleArray`).
+- **📈 Gerenciamento de Progresso:** Todo o progresso é salvo no `localStorage`.
+- **📜 Certificado de Conclusão:** Geração de certificado em PNG (via `html2canvas`) com nome e título da trilha.
+- **🌙 Tema Escuro (Dark Mode).**
+- **🔍 Controles de Zoom.**
+- **📱 Design Responsivo.**
+- **🤖 Integração com IA Externa:** Chat via iframe com [chat.deepseek.com](https://chat.deepseek.com).
+- **🎮 Tutorial de Onboarding:** Ajuda para novos usuários.
+
+---
+
+## 🧩 Tecnologias Utilizadas
+
+| Área | Tecnologia |
+|------|-------------|
+| **Front-End** | HTML5, CSS3 (variáveis CSS), JavaScript (ES6+) |
+| **Estado Global** | JavaScript puro (`appState`) |
+| **Persistência** | `localStorage` |
+| **Geração de Certificado** | `html2canvas` |
+| **IA - Backend (Modo API)** | Integração com endpoint configurável (atualmente: [Webhook n8n](https://academy01.app.n8n.cloud/webhook/academy)) |
+| **IA - Modo Manual** | `iframe` com [chat.deepseek.com](https://chat.deepseek.com) |
+
+---
+
+## 💻 Como Executar Localmente
+
+Este projeto é **100% front-end** e **não requer build ou dependências** externas.
 
 1. **Clone o repositório:**
    ```bash
-   git clone https://github.com/seu-usuario/ia-dev-academy.git
+   git clone https://github.com/seuusuario/IA.Academy.git
    ```
 
-2. **Acesse o diretório do projeto:**
+2. **Abra o arquivo principal:**
    ```bash
-   cd ia-dev-academy
+   cd IA.Academy
    ```
 
-3. **Configure a chave da API (opcional):**
-   - Por padrão, a aplicação usa um **webhook n8n** para proteger a chave.
-   - Para desenvolvimento local, edite `script.js`:
-     ```javascript
-     if (useApi) {
-         // Substitua a chamada ao API_BACK_END pela sua chave local
-     }
-     ```
+3. **Execute localmente:**
+   - Basta abrir o arquivo `index.html` em qualquer navegador moderno.
 
-4. **Inicie a aplicação:**
-   - Clique com o botão direito em `index.html`
-   - Selecione **"Open with Live Server"**
-   - O navegador abrirá automaticamente
+4. **(Opcional) Ativar o Modo API:**
+   - Vá até o menu **Configurações** e ative o modo **API**.
+   - Certifique-se de que o endpoint configurado em `API_BACK_END` dentro de `script.js` está ativo e pronto para processar os prompts definidos em `PROMPTS`.
 
 ---
 
-## 👨‍💻 Como Usar
+## 🧭 Estrutura do Projeto
 
-1. Abra a página inicial e siga o tutorial.
-2. Digite o tema da trilha que deseja criar.
-3. Escolha entre **Modo Manual** ou **Modo API**.
-4. Clique em **"Gerar Trilha"**.
-5. Acompanhe seu progresso em **"Minhas Trilhas"**.
-6. Estude, interaja com a IA e faça as avaliações.
-7. Gere seu certificado personalizado ao concluir.
+```
+IA.Academy/
+├── index.html
+├── script.js
+├── style.css
+├── assets/
+│   ├── icons/
+│   ├── certificates/
+│   └── onboarding/
+└── README.md
+```
 
 ---
 
-## 📄 Licença
+## 🏆 Contribuições
 
-Este projeto está licenciado sob a **Licença MIT**.
+Contribuições são bem-vindas!  
+Sinta-se à vontade para abrir **issues**, propor **melhorias**, ou enviar **pull requests**.  
+
+---
+
+## 📜 Licença
+
+Este projeto é distribuído sob a licença **MIT**.  
+Você pode usá-lo, modificá-lo e distribuí-lo livremente, desde que mantenha a atribuição ao autor original.
+
+> “A IA não substitui o aprendizado — ela o potencializa.” 🚀
+
+---
