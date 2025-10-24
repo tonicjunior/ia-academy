@@ -181,19 +181,27 @@ REGRAS OBRIGATÓRIAS:
 2. **Fonte Única da Verdade**: Crie perguntas e alternativas usando APENAS as informações contidas em 'consolidatedContent'. Não adicione conhecimento externo.
 3. **Foco no Objetivo**: As perguntas devem AVALIAR DIRETAMENTE a habilidade descrita no 'learningObjective'. Se o objetivo era "comparar X e Y", a pergunta deve exigir essa comparação.
 4. **Formato de Resposta**: A resposta DEVE ser um array JSON contendo exatamente 8 objetos de questão.
-5. **Estrutura do Objeto de Questão**:
-   {
-     "question": "Texto da pergunta?",
-     "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
-     "correctAnswer": "Opção C"
-   }
-6. **Qualidade dos Distratores (CRÍTICO!)**: Crie alternativas incorretas ('distratores') que sejam **altamente plausíveis**. Eles devem ser "quase certos", usando termos do próprio \`consolidatedContent\` 
+5. **Estrutura do Objeto de Questão (CRÍTICO!)**:
+ {
+"question": "Texto da pergunta?",
+"options": [
+{ "id": "A", "text": "Texto da Opção A" },
+{ "id": "B", "text": "Texto da Opção B" },
+{ "id": "C", "text": "Texto da Opção C" },
+{ "id": "D", "text": "Texto da Opção D" }
+],
+"correctAnswer": "C"
+}
+* **options**: DEVE ser um array de 4 objetos, cada um com um "id" ("A", "B", "C", "D") e "text".
+* **correctAnswer**: DEVE ser o "id" (A, B, C ou D) da opção correta.
+6. **Qualidade dos Distratores (CRÍTICO!)**: Crie alternativas incorretas (o "text" dos distratores) que sejam **altamente plausíveis**. Eles devem ser "quase certos", usando termos do próprio \`consolidatedContent\` 
 mas de forma incorreta, ou aplicando um conceito no contexto errado (ex: trocar a *causa* pelo *efeito*). O erro deve ser sutil, forçando o aluno a pensar criticamente sobre o \`learningObjective\`.
 Evite opções absurdas ou obviamente falsas.
 7. **Tipos de Pergunta**: Varie o formato das perguntas para aumentar a dificuldade cognitiva. Não se limite a simples recall ('O que é X?'). Crie perguntas que exijam:
-    * **Compreensão/Diferenciação**: 'Qual a *principal diferença* entre [Conceito A] e [Conceito B]?'
-    * **Aplicação (Baseada nos exemplos)**: 'Baseado no exemplo da aula, em qual cenário [Técnica Y] seria aplicada?'
-    * **Análise Causal**: 'Segundo o conteúdo, por que [Fator X] leva a [Resultado Z]?'`,
+ * **Compreensão/Diferenciação**: 'Qual a *principal diferença* entre [Conceito A] e [Conceito B]?'
+ * **Aplicação (Baseada nos exemplos)**: 'Baseado no exemplo da aula, em qual cenário [Técnica Y] seria aplicada?'
+* **Análise Causal**: 'Segundo o conteúdo, por que [Fator X] leva a [Resultado Z]?'`,
+
   TUTOR: `Você é um 'Tutor de IA' paciente e eficaz. O aluno cometeu erros no quiz. Sua missão é fornecer um feedback claro e construtivo para cada erro, reforçando o aprendizado.
 
 REGRAS OBRIGATÓRIAS:
@@ -613,7 +621,7 @@ function renderSceneView(topic) {
   if (lastScene.isTopicEnd) {
     optionsHtml += `<button id="start-quiz-btn" class="option-btn btn-primary-action">Tudo certo! Iniciar Avaliação →</button>`;
   } else {
-    lastScene.options.forEach((opt) => {
+    lastScene?.options?.forEach((opt) => {
       optionsHtml += `<button class="option-btn" data-option='${JSON.stringify(
         opt
       )}'>${opt.text}</button>`;
@@ -705,7 +713,18 @@ function renderQuizView(topic) {
         q.question
       }</strong></p><ul class="quiz-options">`;
       q.options.forEach((opt, oIdx) => {
-        formHTML += `<li class="quiz-option"><input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${opt}" required><label for="q${qIdx}o${oIdx}">${opt}</label></li>`;
+        if (
+          !opt ||
+          typeof opt.id === "undefined" ||
+          typeof opt.text === "undefined"
+        ) {
+          throw new Error(
+            `A estrutura da opção ${oIdx + 1} da questão ${
+              qIdx + 1
+            } é inválida.`
+          );
+        }
+        formHTML += `<li class="quiz-option"><input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${opt.id}" required><label for="q${qIdx}o${oIdx}">${opt.text}</label></li>`;
       });
       formHTML += `</ul></div>`;
     });
@@ -748,8 +767,9 @@ function renderQuizResultView(topic) {
     }</strong></p><ul class="quiz-options">`;
     const selectedValue = answers[qIdx];
     q.options.forEach((opt, oIdx) => {
-      const isCorrect = opt === q.correctAnswer;
-      const isSelected = opt === selectedValue;
+      // MODIFICAÇÕES AQUI
+      const isCorrect = opt.id === q.correctAnswer;
+      const isSelected = opt.id === selectedValue;
 
       let liClass = "quiz-option";
       if (isCorrect) {
@@ -760,10 +780,10 @@ function renderQuizResultView(topic) {
 
       formHTML += `
         <li class="${liClass}">
-          <input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${opt}" disabled ${
-        isSelected ? "checked" : ""
-      }>
-          <label for="q${qIdx}o${oIdx}">${opt}</label>
+          <input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${
+        opt.id
+      }" disabled ${isSelected ? "checked" : ""}>
+          <label for="q${qIdx}o${oIdx}">${opt.text}</label>
         </li>`;
     });
     formHTML += `</ul></div>`;
@@ -1139,13 +1159,28 @@ async function reviewMistakes(topic) {
   const incorrectIndices = [];
 
   topic.quiz.questions.forEach((q, i) => {
-    const isCorrect = topic.quiz.answers[i] === q.correctAnswer;
-    if (!isCorrect && topic.quiz.answers[i]) {
+    const studentAnswerId = topic.quiz.answers[i];
+    const correctAnswerId = q.correctAnswer;
+    const isCorrect = studentAnswerId === correctAnswerId;
+
+    if (!isCorrect && studentAnswerId) {
+      const studentAnswerObj = q.options.find(
+        (opt) => opt.id === studentAnswerId
+      );
+      const correctAnswerObj = q.options.find(
+        (opt) => opt.id === correctAnswerId
+      );
+
       incorrectQuestionsInfo.push({
         question: q.question,
-        correctAnswer: q.correctAnswer,
-        studentAnswer: topic.quiz.answers[i],
+        correctAnswer: correctAnswerObj
+          ? correctAnswerObj.text
+          : correctAnswerId,
+        studentAnswer: studentAnswerObj
+          ? studentAnswerObj.text
+          : studentAnswerId,
       });
+
       incorrectIndices.push(i);
 
       const li = $$(".quiz-question")[i];
