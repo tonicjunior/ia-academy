@@ -255,10 +255,6 @@ function initializeSettings() {
   $("#api-mode-toggle").checked = savedApiMode;
   $("#api-mode-switch-settings").checked = savedApiMode;
   document.dispatchEvent(new Event("apiModeChange"));
-
-  const assistant = localStorage.getItem(ASSISTANT_ENABLED_KEY);
-  const savedAssistantState = assistant ?? "true";
-  $("#assistant-switch").checked = savedAssistantState;
 }
 
 function initializeTheme() {
@@ -1337,9 +1333,8 @@ function showPromptModal(title, requestBody, callback) {
   $("#modal-error-message").classList.add("hidden");
   $("#prompt-modal").classList.remove("hidden");
 
-  const assistant = localStorage.getItem(ASSISTANT_ENABLED_KEY);
-  const isAssistantEnabled = assistant ?? "true";
-  if (window.innerWidth > 768 && isAssistantEnabled) {
+  const isEnabled = localStorage.getItem(ASSISTANT_ENABLED_KEY) === "true";
+  if (window.innerWidth > 768 && isEnabled) {
     $("#prompt-modal").classList.remove("hidden");
     $("#chatbot-container").classList.remove("hidden");
   }
@@ -1411,6 +1406,9 @@ function showConfirmationModal(title, message, options = {}) {
 }
 
 function setupEventListeners() {
+  const isEnabled = localStorage.getItem(ASSISTANT_ENABLED_KEY) === "true";
+  $("#assistant-switch").checked = isEnabled;
+
   $("#assistant-switch").addEventListener("change", (e) => {
     localStorage.setItem(ASSISTANT_ENABLED_KEY, e.target.checked);
   });
@@ -1486,14 +1484,6 @@ function setupEventListeners() {
         (isApiMode && index === 1) || (!isApiMode && index === 0)
       );
     });
-  });
-
-  $("#assistant-switch").addEventListener("change", (e) => {
-    localStorage.setItem(ASSISTANT_ENABLED_KEY, e.target.checked);
-  });
-
-  $("#assistant-switch").addEventListener("change", (e) => {
-    localStorage.setItem(ASSISTANT_ENABLED_KEY, e.target.checked);
   });
 
   $("#zoom-in-btn").addEventListener("click", () => {
