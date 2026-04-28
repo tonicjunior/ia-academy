@@ -67,7 +67,7 @@ function showTutorial() {
 function applyZoom() {
   document.body.style.zoom = currentZoomLevel;
   $("#zoom-level-display").textContent = `${Math.round(
-    currentZoomLevel * 100
+    currentZoomLevel * 100,
   )}%`;
   localStorage.setItem(ZOOM_KEY, currentZoomLevel);
 }
@@ -88,11 +88,11 @@ function renderTutorialStep(stepIndex) {
   $("#tutorial-prev-btn").classList.toggle("hidden", stepIndex === 0);
   $("#tutorial-next-btn").classList.toggle(
     "hidden",
-    stepIndex === tutorialSteps.length - 1
+    stepIndex === tutorialSteps.length - 1,
   );
   $("#tutorial-finish-btn").classList.toggle(
     "hidden",
-    stepIndex !== tutorialSteps.length - 1
+    stepIndex !== tutorialSteps.length - 1,
   );
 
   const progressContainer = $("#tutorial-progress");
@@ -277,7 +277,7 @@ function generateHistoryHtml(chatHistory) {
       try {
         const scene = JSON.parse(message.parts[0].text);
         historyHtml += `<div class="chat-message model-message"><div class="narrative-content">${formatNarrative(
-          scene.narrative
+          scene.narrative,
         )}</div></div>`;
       } catch (e) {}
     } else if (message.role === "user") {
@@ -373,7 +373,7 @@ async function processRequest(requestType, context) {
       await showConfirmationModal(
         "Erro na API",
         `Ocorreu um erro: ${error.message}`,
-        { confirmText: "OK", showCancel: false }
+        { confirmText: "OK", showCancel: false },
       );
     } finally {
       hideLoadingModal();
@@ -394,7 +394,7 @@ function renderDashboard() {
   container.innerHTML = "";
 
   const trilhas = Object.values(appState.trilhas).sort(
-    (a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0)
+    (a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0),
   );
 
   if (trilhas.length > 0) {
@@ -535,9 +535,8 @@ function renderCurrentStateView() {
   $("#content-navigation-review").innerHTML = "";
 
   if (!topic) {
-    $(
-      "#learning-content"
-    ).innerHTML = `<p>Selecione um tópico na barra lateral para começar.</p>`;
+    $("#learning-content").innerHTML =
+      `<p>Selecione um tópico na barra lateral para começar.</p>`;
     contentHeader.innerHTML = "";
     $("#content-navigation").innerHTML = "";
     return;
@@ -607,10 +606,10 @@ function renderSceneView(topic) {
   }
 
   let historyHtml = `<div id="history-content" class="hidden">${generateHistoryHtml(
-    effectiveHistory.slice(0, -1)
+    effectiveHistory.slice(0, -1),
   )}</div>`;
   let narrativeHtml = `<div class="narrative-content">${formatNarrative(
-    lastScene.narrative
+    lastScene.narrative,
   )}</div>`;
 
   let optionsHtml = '<div class="options-container">';
@@ -619,7 +618,7 @@ function renderSceneView(topic) {
   } else {
     lastScene?.options?.forEach((opt) => {
       optionsHtml += `<button class="option-btn" data-option='${JSON.stringify(
-        opt
+        opt,
       )}'>${opt.text}</button>`;
     });
     const freeFormOption = {
@@ -627,7 +626,7 @@ function renderSceneView(topic) {
       action: "escrever_pergunta",
     };
     optionsHtml += `<button class="option-btn" data-option='${JSON.stringify(
-      freeFormOption
+      freeFormOption,
     )}'>${freeFormOption.text}</button>`;
   }
   optionsHtml += "</div>";
@@ -696,7 +695,7 @@ function renderQuizView(topic) {
 
     if (!topic.quiz || !Array.isArray(topic.quiz.questions)) {
       throw new Error(
-        "O formato do quiz é inválido ou as questões não foram fornecidas como um array."
+        "O formato do quiz é inválido ou as questões não foram fornecidas como um array.",
       );
     }
 
@@ -717,7 +716,7 @@ function renderQuizView(topic) {
           throw new Error(
             `A estrutura da opção ${oIdx + 1} da questão ${
               qIdx + 1
-            } é inválida.`
+            } é inválida.`,
           );
         }
         formHTML += `<li class="quiz-option"><input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${opt.id}" required><label for="q${qIdx}o${oIdx}">${opt.text}</label></li>`;
@@ -732,7 +731,7 @@ function renderQuizView(topic) {
   } catch (error) {
     console.error(
       "Falha ao renderizar o quiz. O formato do JSON provavelmente está incorreto.",
-      error
+      error,
     );
 
     const currentTopic = getActiveTopic();
@@ -777,8 +776,8 @@ function renderQuizResultView(topic) {
       formHTML += `
         <li class="${liClass}">
           <input type="radio" id="q${qIdx}o${oIdx}" name="q${qIdx}" value="${
-        opt.id
-      }" disabled ${isSelected ? "checked" : ""}>
+            opt.id
+          }" disabled ${isSelected ? "checked" : ""}>
           <label for="q${qIdx}o${oIdx}">${opt.text}</label>
         </li>`;
     });
@@ -796,13 +795,13 @@ function renderQuizResultView(topic) {
   if (score >= 70) {
     resultDiv.className = "passed";
     resultDiv.innerHTML = `<h3>Parabéns! Você foi aprovado!</h3><p>Nota: ${score.toFixed(
-      0
+      0,
     )}%</p>`;
     if (
       !isLastTopicOfTrilha(
         getActiveTrilha(),
         appState.activeModuleIndex,
-        appState.activeSubtopicIndex
+        appState.activeSubtopicIndex,
       )
     ) {
       const nextBtn = document.createElement("button");
@@ -814,7 +813,7 @@ function renderQuizResultView(topic) {
   } else {
     resultDiv.className = "failed";
     resultDiv.innerHTML = `<h3>Não foi desta vez.</h3><p>Sua nota: ${score.toFixed(
-      0
+      0,
     )}%. Você precisa de 70%.</p>`;
 
     const retryBtn = document.createElement("button");
@@ -859,7 +858,7 @@ function renderQuizResultView(topic) {
   $("#quiz-form").appendChild(resultDiv);
   $("#quiz-form").insertAdjacentHTML(
     "afterend",
-    '<div id="study-history-container" class="hidden"></div>'
+    '<div id="study-history-container" class="hidden"></div>',
   );
 }
 
@@ -887,7 +886,7 @@ async function handleDownloadCertificate() {
   downloadBtn.disabled = true;
 
   const originalElement = document.querySelector(
-    "#certificado-container-render"
+    "#certificado-container-render",
   );
   const clone = originalElement.cloneNode(true);
 
@@ -1161,10 +1160,10 @@ async function reviewMistakes(topic) {
 
     if (!isCorrect && studentAnswerId) {
       const studentAnswerObj = q.options.find(
-        (opt) => opt.id === studentAnswerId
+        (opt) => opt.id === studentAnswerId,
       );
       const correctAnswerObj = q.options.find(
-        (opt) => opt.id === correctAnswerId
+        (opt) => opt.id === correctAnswerId,
       );
 
       incorrectQuestionsInfo.push({
@@ -1268,7 +1267,7 @@ async function handleDeleteTrilha(trilhaId) {
   const isConfirmed = await showConfirmationModal(
     "Apagar Trilha",
     `Tem certeza que quer apagar a trilha "<strong>${trilha.title}</strong>"?`,
-    { confirmText: "Apagar", isDestructive: true }
+    { confirmText: "Apagar", isDestructive: true },
   );
   if (isConfirmed) {
     delete appState.trilhas[trilhaId];
@@ -1293,7 +1292,7 @@ async function handleQuizSubmit() {
     await showConfirmationModal(
       "Atenção",
       "Por favor, responda a todas as questões.",
-      { showCancel: false, confirmText: "OK" }
+      { showCancel: false, confirmText: "OK" },
     );
     return;
   }
@@ -1308,7 +1307,7 @@ async function handleQuizSubmit() {
       isLastTopicOfTrilha(
         tr,
         appState.activeModuleIndex,
-        appState.activeSubtopicIndex
+        appState.activeSubtopicIndex,
       )
     ) {
       tr.completed = true;
@@ -1430,13 +1429,13 @@ function setupEventListeners() {
   $("#tutorial-finish-btn").addEventListener("click", closeTutorial);
 
   $("#settings-btn").addEventListener("click", () =>
-    $("#settings-modal").classList.remove("hidden")
+    $("#settings-modal").classList.remove("hidden"),
   );
   $("#settings-close-btn").addEventListener("click", () =>
-    $("#settings-modal").classList.add("hidden")
+    $("#settings-modal").classList.add("hidden"),
   );
   $("#settings-overlay").addEventListener("click", () =>
-    $("#settings-modal").classList.add("hidden")
+    $("#settings-modal").classList.add("hidden"),
   );
 
   $("#theme-switch").addEventListener("change", (e) => {
@@ -1469,10 +1468,10 @@ function setupEventListeners() {
   };
 
   $("#api-mode-toggle").addEventListener("change", (e) =>
-    syncApiToggles(e.target)
+    syncApiToggles(e.target),
   );
   $("#api-mode-switch-settings").addEventListener("change", (e) =>
-    syncApiToggles(e.target)
+    syncApiToggles(e.target),
   );
 
   document.addEventListener("apiModeChange", () => {
@@ -1481,7 +1480,7 @@ function setupEventListeners() {
     labels.forEach((label, index) => {
       label.classList.toggle(
         "active",
-        (isApiMode && index === 1) || (!isApiMode && index === 0)
+        (isApiMode && index === 1) || (!isApiMode && index === 0),
       );
     });
   });
@@ -1554,7 +1553,7 @@ function setupEventListeners() {
     const isConfirmed = await showConfirmationModal(
       "Apagar Tudo",
       "Certeza que quer apagar <strong>TODAS</strong> as trilhas? A ação não pode ser desfeita.",
-      { confirmText: "Apagar Tudo", isDestructive: true }
+      { confirmText: "Apagar Tudo", isDestructive: true },
     );
     if (isConfirmed) {
       localStorage.clear();
@@ -1583,7 +1582,7 @@ function setupEventListeners() {
     $("#copy-prompt-btn").textContent = "Copiado!";
     setTimeout(
       () => ($("#copy-prompt-btn").textContent = "Copiar Prompt"),
-      2000
+      2000,
     );
   };
 
@@ -1603,8 +1602,8 @@ function setupEventListeners() {
     let jsonText = raw.startsWith("```json")
       ? raw.slice(7, -3)
       : raw.startsWith("```")
-      ? raw.slice(3, -3)
-      : raw;
+        ? raw.slice(3, -3)
+        : raw;
     try {
       const json = JSON.parse(jsonText.trim());
       if (onManualResponseSubmit) onManualResponseSubmit(json);
