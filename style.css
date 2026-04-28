@@ -47,6 +47,10 @@
   );
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --radius: 0.75rem;
+  --ref-bg: #f6fff6;
+  --ref-border: #4CAF50;
+  --ref-text: #333;
+  --ref-inline: #555;
 }
 
 html.dark {
@@ -1800,4 +1804,20 @@ input:checked + .slider:before {
   color: hsl(var(--card-foreground));
   min-width: 50px;
   text-align: center;
+}
+
+.ref-box {
+  margin: 12px 0;
+  padding: 10px;
+  border-left: 4px solid var(--ref-border);
+  background: var(--ref-bg);
+  color: var(--ref-text);
+  font-size: 0.9em;
+  border-radius: 6px;
+}
+
+.ref-inline {
+  font-size: 0.85em;
+  color: var(--ref-inline);
+  margin-left: 6px;
 }
